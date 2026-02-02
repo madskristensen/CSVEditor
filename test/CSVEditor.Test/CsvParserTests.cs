@@ -1,0 +1,180 @@
+using CSVEditor.Core;
+
+namespace CSVEditor.Test;
+
+[TestClass]
+public sealed class CsvParserTests
+{
+    [TestMethod]
+    public void Parse_SimpleCSV_ReturnsCorrectRowCount()
+    {
+        var content = "A,B,C\n1,2,3\n4,5,6";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+        Assert.AreEqual(3, doc.Count);
+    }
+
+    [TestMethod]
+    public void Parse_SimpleCSV_ReturnsCorrectColumnCount()
+    {
+        var content = "A,B,C\n1,2,3";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+        Assert.AreEqual(3, doc[0].Count);
+        Assert.AreEqual(3, doc[1].Count);
+    }
+
+    [TestMethod]
+    public void Parse_SimpleCSV_ReturnsCorrectValues()
+    {
+        var content = "Name,Age\nJohn,30";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual("Name", doc[0][0].Value);
+        Assert.AreEqual("Age", doc[0][1].Value);
+        Assert.AreEqual("John", doc[1][0].Value);
+        Assert.AreEqual("30", doc[1][1].Value);
+    }
+
+    [TestMethod]
+    public void Parse_QuotedFields_ReturnsUnquotedValue()
+    {
+        var content = "\"Hello\",\"World\"";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual("Hello", doc[0][0].Value);
+        Assert.AreEqual("World", doc[0][1].Value);
+        Assert.IsTrue(doc[0][0].IsQuoted);
+        Assert.IsTrue(doc[0][1].IsQuoted);
+    }
+
+    [TestMethod]
+    public void Parse_QuotedFieldWithComma_ReturnsCorrectValue()
+    {
+        var content = "\"Doe, John\",30";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(2, doc[0].Count);
+        Assert.AreEqual("Doe, John", doc[0][0].Value);
+        Assert.AreEqual("30", doc[0][1].Value);
+    }
+
+    [TestMethod]
+    public void Parse_EscapedQuotes_ReturnsCorrectValue()
+    {
+        var content = "\"He said \"\"Hello\"\"\"";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual("He said \"Hello\"", doc[0][0].Value);
+    }
+
+    [TestMethod]
+    public void Parse_EmptyFields_ReturnsEmptyStrings()
+    {
+        var content = "A,,C";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(3, doc[0].Count);
+        Assert.AreEqual("A", doc[0][0].Value);
+        Assert.AreEqual("", doc[0][1].Value);
+        Assert.AreEqual("C", doc[0][2].Value);
+    }
+
+    [TestMethod]
+    public void Parse_TrailingNewline_DoesNotCreateExtraRow()
+    {
+        var content = "A,B\n1,2\n";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+        Assert.AreEqual(2, doc.Count);
+    }
+
+    [TestMethod]
+    public void Parse_WindowsLineEndings_ParsesCorrectly()
+    {
+        var content = "A,B\r\n1,2\r\n3,4";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(3, doc.Count);
+        Assert.AreEqual("A", doc[0][0].Value);
+        Assert.AreEqual("1", doc[1][0].Value);
+        Assert.AreEqual("3", doc[2][0].Value);
+    }
+
+    [TestMethod]
+    public void Parse_CellSpans_AreCorrect()
+    {
+        var content = "ABC,DE,F";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        // "ABC" starts at 0, length 3
+        Assert.AreEqual(0, doc[0][0].Span.Start);
+        Assert.AreEqual(3, doc[0][0].Span.Length);
+
+        // "DE" starts at 4, length 2
+        Assert.AreEqual(4, doc[0][1].Span.Start);
+        Assert.AreEqual(2, doc[0][1].Span.Length);
+
+        // "F" starts at 7, length 1
+        Assert.AreEqual(7, doc[0][2].Span.Start);
+        Assert.AreEqual(1, doc[0][2].Span.Length);
+    }
+
+    [TestMethod]
+    public void Parse_AutoDetectsDelimiter()
+    {
+        var content = "A\tB\tC\n1\t2\t3";
+        var doc = CsvParser.Parse(content);
+
+        Assert.AreEqual('\t', doc.Delimiter);
+        Assert.AreEqual(3, doc[0].Count);
+    }
+
+    [TestMethod]
+    public void Parse_ColumnNames_ExtractedFromHeader()
+    {
+        var content = "Name,Age,City\nJohn,30,NYC";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(3, doc.ColumnNames.Count);
+        Assert.AreEqual("Name", doc.ColumnNames[0]);
+        Assert.AreEqual("Age", doc.ColumnNames[1]);
+        Assert.AreEqual("City", doc.ColumnNames[2]);
+    }
+
+    [TestMethod]
+    public void GetCellAtPosition_ReturnsCorrectCell()
+    {
+        var content = "ABC,DEF";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        // Position 1 is in "ABC"
+        var cell1 = doc.GetCellAtPosition(1);
+        Assert.IsNotNull(cell1);
+        Assert.AreEqual("ABC", cell1.Value);
+        Assert.AreEqual(0, cell1.ColumnIndex);
+
+        // Position 5 is in "DEF"
+        var cell2 = doc.GetCellAtPosition(5);
+        Assert.IsNotNull(cell2);
+        Assert.AreEqual("DEF", cell2.Value);
+        Assert.AreEqual(1, cell2.ColumnIndex);
+    }
+
+    [TestMethod]
+    public void GetColumnName_ReturnsHeaderValue()
+    {
+        var content = "Name,Age\nJohn,30";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual("Name", doc.GetColumnName(0));
+        Assert.AreEqual("Age", doc.GetColumnName(1));
+    }
+
+    [TestMethod]
+    public void GetColumnName_ReturnsGeneratedName_WhenOutOfRange()
+    {
+        var content = "A,B\n1,2";
+        var doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual("Column 3", doc.GetColumnName(2));
+        Assert.AreEqual("Column 10", doc.GetColumnName(9));
+    }
+}
