@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using CSVEditor.Core;
@@ -65,7 +66,6 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
         if (e.Changes.Count > 0)
         {
             var firstChange = e.Changes[0];
-            // If change is in the first few lines, re-detect delimiter
             if (firstChange.OldPosition < 500)
             {
                 _delimiterDetected = false;
@@ -89,7 +89,6 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
 
         var snapshot = spans[0].Snapshot;
 
-        // Detect delimiter if not yet done
         if (!_delimiterDetected)
         {
             DetectDelimiter(snapshot);
@@ -113,10 +112,8 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
 
     private void DetectDelimiter(ITextSnapshot snapshot)
     {
-        // Get first portion of the document for delimiter detection
         var length = Math.Min(snapshot.Length, 2000);
         var text = snapshot.GetText(0, length);
-
         var delimiter = DelimiterDetector.Detect(text);
         _detectedDelimiter = delimiter.ToChar();
         _delimiterDetected = true;
@@ -128,56 +125,20 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
         if (string.IsNullOrEmpty(lineText))
             yield break;
 
-        var lineStart = line.Start.Position;
-        var position = 0;
-        var columnIndex = 0;
+        // Use CsvParser to parse the line
+        var row = CsvParser.ParseLine(lineText, _detectedDelimiter, line.LineNumber, line.Start.Position);
 
-        while (position < lineText.Length)
-        {
-            var cellStart = position;
-            var inQuotes = false;
-
-            // Parse cell
-            while (position < lineText.Length)
-            {
-                var c = lineText[position];
-
-                if (c == '"')
-                {
-                    if (inQuotes && position + 1 < lineText.Length && lineText[position + 1] == '"')
-                    {
-                        position += 2; // Skip escaped quote
-                        continue;
+                        foreach (var cell in row)
+                        {
+                            if (cell.Span.Length > 0)
+                            {
+                                var classificationName = CsvClassificationTypes.GetColumnClassificationType(cell.ColumnIndex);
+                                if (_classificationTypes.TryGetValue(classificationName, out var classificationType))
+                                {
+                                    var cellSpan = new SnapshotSpan(line.Snapshot, cell.Span.Start, cell.Span.Length);
+                                    yield return new TagSpan<IClassificationTag>(cellSpan, new ClassificationTag(classificationType));
+                                }
+                            }
+                        }
                     }
-                    inQuotes = !inQuotes;
                 }
-                else if (c == _detectedDelimiter && !inQuotes)
-                {
-                    break;
-                }
-
-                position++;
-            }
-
-            // Create tag for this cell
-            var cellLength = position - cellStart;
-            if (cellLength > 0)
-            {
-                var classificationName = CsvClassificationTypes.GetColumnClassificationType(columnIndex);
-                if (_classificationTypes.TryGetValue(classificationName, out var classificationType))
-                {
-                    var cellSpan = new SnapshotSpan(line.Snapshot, lineStart + cellStart, cellLength);
-                    yield return new TagSpan<IClassificationTag>(cellSpan, new ClassificationTag(classificationType));
-                }
-            }
-
-            // Skip delimiter
-            if (position < lineText.Length && lineText[position] == _detectedDelimiter)
-            {
-                position++;
-            }
-
-            columnIndex++;
-        }
-    }
-}

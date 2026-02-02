@@ -9,29 +9,33 @@
   <Commands package="CSVEditor">
     <Groups>
       <Group guid="CSVEditor" id="MyMenuGroup" priority="0x0600">
-        <Parent guid="VSMainMenu" id="Tools"/>
+        <Parent guid="VSMainMenu" id="Edit"/>
       </Group>
     </Groups>
 
-    <!--This section defines the elements the user can interact with, like a menu command or a button
-        or combo box in a toolbar. -->
     <Buttons>
-      <Button guid="CSVEditor" id="MyCommand" priority="0x0100" type="Button">
+      <Button guid="CSVEditor" id="GoToColumnCommand" priority="0x0100" type="Button">
         <Parent guid="CSVEditor" id="MyMenuGroup" />
-        <Icon guid="ImageCatalogGuid" id="StatusInformation" />
+        <Icon guid="ImageCatalogGuid" id="GoToNext" />
         <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultInvisible</CommandFlag>
         <Strings>
-          <ButtonText>My Command</ButtonText>
-          <LocCanonicalName>.CSVEditor.MyCommand</LocCanonicalName>
+          <ButtonText>Go to Column...</ButtonText>
+          <LocCanonicalName>.CSVEditor.GoToColumnCommand</LocCanonicalName>
         </Strings>
       </Button>
     </Buttons>
   </Commands>
 
+  <KeyBindings>
+    <KeyBinding guid="CSVEditor" id="GoToColumnCommand" editor="guidVSStd97" key1="G" mod1="Control" key2="C" mod2="Control" />
+  </KeyBindings>
+
   <Symbols>
     <GuidSymbol name="CSVEditor" value="{55b9ed45-59d1-40dc-8003-343d792221d7}">
       <IDSymbol name="MyMenuGroup" value="0x0001" />
-      <IDSymbol name="MyCommand" value="0x0100" />
+      <IDSymbol name="GoToColumnCommand" value="0x0100" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>
