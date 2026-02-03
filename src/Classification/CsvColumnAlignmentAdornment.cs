@@ -18,6 +18,7 @@ namespace CSVEditor.Classification;
 /// <summary>
 /// Provides intra-text adornment tags for CSV column alignment.
 /// Inserts virtual whitespace after each cell to align columns.
+/// Only active when explicitly enabled via the "Align CSV Columns" command.
 /// </summary>
 [Export(typeof(IViewTaggerProvider))]
 [ContentType(CsvContentTypeDefinition.CsvContentTypeName)]
@@ -50,10 +51,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
     private bool _delimiterDetected;
     private int[] _columnWidths;
     private bool _disposed;
-    private bool _initialLayoutComplete;
     private CancellationTokenSource _calculationCts;
-    private System.Windows.Threading.DispatcherTimer _debounceTimer;
-    private const int DebounceDelayMs = 500; // Wait 500ms after last keystroke
 
     public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
@@ -66,51 +64,44 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         if (_textView != null)
         {
             _textView.Closed += OnClosed;
-            _textView.LayoutChanged += OnLayoutChanged;
         }
+
+        // Register for alignment state changes
+        CsvAlignmentState.RegisterStateChangedHandler(buffer, OnAlignmentStateChanged);
     }
 
-    private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
+    private void OnAlignmentStateChanged(bool enabled)
     {
         if (_disposed) return;
 
-        // On first layout, trigger tag recalculation
-        if (!_initialLayoutComplete)
+        if (enabled)
         {
-            _initialLayoutComplete = true;
-
-            // Start background calculation of all column widths
+            // Start calculating widths when alignment is enabled
+            _columnWidths = null;
             StartBackgroundWidthCalculation();
         }
+        else
+        {
+            // Clear widths and refresh when disabled
+            _columnWidths = null;
+            RaiseTagsChanged();
+        }
     }
 
-    private void ScheduleBackgroundCalculation()
+    private void RaiseTagsChanged()
     {
         if (_disposed) return;
 
-        // Debounce: reset timer on each call
-        if (_debounceTimer == null)
-        {
-            _debounceTimer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(DebounceDelayMs)
-            };
-            _debounceTimer.Tick += (s, e) =>
-            {
-                _debounceTimer.Stop();
-                if (!_disposed)
-                {
-                    StartBackgroundWidthCalculation();
-                }
-            };
-        }
-
-        _debounceTimer.Stop();
-        _debounceTimer.Start();
+        var snapshot = _buffer.CurrentSnapshot;
+        TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+            new SnapshotSpan(snapshot, 0, snapshot.Length)));
     }
 
     private void StartBackgroundWidthCalculation()
     {
+        if (!CsvAlignmentState.IsEnabled(_buffer))
+            return;
+
         _calculationCts?.Cancel();
         _calculationCts = new CancellationTokenSource();
         var token = _calculationCts.Token;
@@ -135,9 +126,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
                     {
                         if (!_disposed)
                         {
-                            var currentSnapshot = _buffer.CurrentSnapshot;
-                            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
-                                new SnapshotSpan(currentSnapshot, 0, currentSnapshot.Length)));
+                            RaiseTagsChanged();
                         }
                     }));
                 }
@@ -211,14 +200,19 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
             _delimiterDetected = false;
         }
 
-        // DON'T invalidate _columnWidths here - keep using cached widths during typing
-        // Schedule debounced recalculation instead
-        ScheduleBackgroundCalculation();
+        // Only recalculate if alignment is enabled
+        if (CsvAlignmentState.IsEnabled(_buffer))
+        {
+            // Invalidate and recalculate
+            _columnWidths = null;
+            StartBackgroundWidthCalculation();
+        }
     }
 
     public IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTags(NormalizedSnapshotSpanCollection spans)
     {
-        if (spans.Count == 0 || _disposed || _textView == null)
+        // Only produce tags if alignment is enabled for this buffer
+        if (spans.Count == 0 || _disposed || _textView == null || !CsvAlignmentState.IsEnabled(_buffer))
             yield break;
 
         var snapshot = spans[0].Snapshot;
@@ -229,10 +223,12 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
             DetectDelimiter(snapshot);
         }
 
-        // If widths not yet calculated, use quick initial calculation
+        // If widths not yet calculated, calculate now
         if (_columnWidths == null)
         {
             _columnWidths = CalculateColumnWidthsQuick(snapshot);
+            // Also start full calculation in background
+            StartBackgroundWidthCalculation();
         }
 
         if (_columnWidths == null || _columnWidths.Length == 0)
@@ -370,20 +366,18 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         return columnMaxWidths.ToArray();
     }
 
-        public void Dispose()
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _calculationCts?.Cancel();
+        _calculationCts?.Dispose();
+
+        _buffer.Changed -= OnBufferChanged;
+        if (_textView != null)
         {
-            if (_disposed) return;
-            _disposed = true;
-
-            _debounceTimer?.Stop();
-            _calculationCts?.Cancel();
-            _calculationCts?.Dispose();
-
-            _buffer.Changed -= OnBufferChanged;
-            if (_textView != null)
-            {
-                _textView.Closed -= OnClosed;
-                _textView.LayoutChanged -= OnLayoutChanged;
-            }
+            _textView.Closed -= OnClosed;
         }
     }
+}

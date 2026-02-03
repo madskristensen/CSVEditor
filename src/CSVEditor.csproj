@@ -53,6 +53,7 @@
     <Compile Include="Classification\CsvStatusBarProvider.cs" />
     <Compile Include="Classification\CsvTagger.cs" />
     <Compile Include="Classification\CsvContentTypeDefinition.cs" />
+    <Compile Include="Commands\AlignColumnsCommand.cs" />
     <Compile Include="Commands\GoToColumnCommand.cs" />
     <Compile Include="Core\CsvCell.cs" />
     <Compile Include="Core\CsvDelimiter.cs" />

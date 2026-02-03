@@ -11,6 +11,9 @@
       <Group guid="CSVEditor" id="CsvMenuGroup" priority="0x0600">
         <Parent guid="VSMainMenu" id="Edit"/>
       </Group>
+      <Group guid="CSVEditor" id="CsvContextMenuGroup" priority="0x0100">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
+      </Group>
     </Groups>
 
     <Buttons>
@@ -25,6 +28,18 @@
           <LocCanonicalName>.CSVEditor.GoToColumnCommand</LocCanonicalName>
         </Strings>
       </Button>
+
+      <Button guid="CSVEditor" id="AlignColumnsCommand" priority="0x0100" type="Button">
+        <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
+        <Icon guid="ImageCatalogGuid" id="AlignLeft" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <!--<CommandFlag>DefaultInvisible</CommandFlag>-->
+        <Strings>
+          <ButtonText>Align CSV Columns</ButtonText>
+          <LocCanonicalName>.CSVEditor.AlignColumnsCommand</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -35,7 +50,9 @@
   <Symbols>
     <GuidSymbol name="CSVEditor" value="{55b9ed45-59d1-40dc-8003-343d792221d7}">
       <IDSymbol name="CsvMenuGroup" value="0x0001" />
+      <IDSymbol name="CsvContextMenuGroup" value="0x0002" />
       <IDSymbol name="GoToColumnCommand" value="0x0100" />
+      <IDSymbol name="AlignColumnsCommand" value="0x0101" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>
