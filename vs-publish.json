@@ -6,8 +6,11 @@
     "tags": [ "data", "csv", "tsv" ]
   },
   "assetFiles": [
-
-  ],
+      "art/syntax-highlighting.png",
+      "art/column-alignment.png",
+      "art/quickinfo.png",
+      "art/error-detection.png"
+    ],
   "overview": "README.md",
   "publisher": "MadsKristensen",
   "repo": "https://github.com/madskristensen/CSVEditor"

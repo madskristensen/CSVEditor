@@ -3,10 +3,12 @@
     <Metadata>
         <Identity Id="CSVEditor.5164fa67-5caa-4d84-9087-bbaedc2a5539" Version="1.0.900" Language="en-US" Publisher="Mads Kristensen" />
         <DisplayName>CSV Editor</DisplayName>
-        <Description>Empty VSIX Project.</Description>
+        <Description xml:space="preserve">CSV Editor transforms flat, hard-to-read data files into colorful, navigable documents</Description>
         <MoreInfo>https://github.com/madskristensen/CSVEditor</MoreInfo>
+        <License>Resources\LICENSE.txt</License>
         <Icon>Resources\Icon.png</Icon>
         <PreviewImage>Resources\Icon.png</PreviewImage>
+        <Tags>csv, tsv</Tags>
     </Metadata>
     <Installation>
         <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)">

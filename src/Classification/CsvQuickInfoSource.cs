@@ -71,7 +71,7 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFa
         var columnName = GetColumnName(snapshot, cell.ColumnIndex, hasHeader);
         CsvDataType columnType = _cache.GetColumnType(snapshot, cell.ColumnIndex);
         var totalColumns = _cache.GetExpectedColumnCount(snapshot);
-        var isHeaderRow = hasHeader && line.LineNumber == 0;
+        var isFirstRow = line.LineNumber == 0;
 
         // Create tracking span for the cell
         var cellSpan = new SnapshotSpan(snapshot, cell.Span.Start, cell.Span.Length);
@@ -79,11 +79,11 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFa
 
         // Build tooltip content (must be on UI thread for WPF elements)
         object content;
-        if (isHeaderRow)
+        if (isFirstRow)
         {
-            // Header row - need WPF elements for clickable links, must be on UI thread
+            // First row - need WPF elements for clickable sort links, must be on UI thread
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            content = BuildHeaderTooltip(cell.ColumnIndex, columnName, columnType, totalColumns, session);
+            content = BuildFirstRowTooltip(cell.ColumnIndex, columnName, columnType, totalColumns, hasHeader, session);
         }
         else
         {
@@ -126,22 +126,34 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFa
         );
     }
 
-    private object BuildHeaderTooltip(int columnIndex, string columnName, CsvDataType columnType, int totalColumns, IAsyncQuickInfoSession session)
+    private object BuildFirstRowTooltip(int columnIndex, string columnName, CsvDataType columnType, int totalColumns, bool hasHeader, IAsyncQuickInfoSession session)
     {
         // This method must be called on the UI thread
         var panel = new StackPanel { Orientation = Orientation.Vertical };
         var typeName = CsvColumnTypeDetector.GetTypeName(columnType);
 
-        // Header info with type
+        // Column info
         var headerInfo = new TextBlock
         {
             Margin = new Thickness(0, 0, 0, 4)
         };
         headerInfo.Inlines.Add(new Run("Column ") { Foreground = Brushes.Gray });
-        headerInfo.Inlines.Add(new Run($"#{columnIndex + 1}") { Foreground = Brushes.DodgerBlue, FontWeight = FontWeights.SemiBold });
+        if (hasHeader)
+        {
+            headerInfo.Inlines.Add(new Run(columnName) { Foreground = Brushes.DodgerBlue, FontWeight = FontWeights.SemiBold });
+            headerInfo.Inlines.Add(new Run($" (#{columnIndex + 1}") { Foreground = Brushes.Gray });
+        }
+        else
+        {
+            headerInfo.Inlines.Add(new Run($"#{columnIndex + 1}") { Foreground = Brushes.DodgerBlue, FontWeight = FontWeights.SemiBold });
+        }
         if (totalColumns > 0)
         {
-            headerInfo.Inlines.Add(new Run($" of {totalColumns}") { Foreground = Brushes.Gray });
+            headerInfo.Inlines.Add(new Run(hasHeader ? $" of {totalColumns})" : $" of {totalColumns}") { Foreground = Brushes.Gray });
+        }
+        else if (hasHeader)
+        {
+            headerInfo.Inlines.Add(new Run(")") { Foreground = Brushes.Gray });
         }
         panel.Children.Add(headerInfo);
 

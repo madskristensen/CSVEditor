@@ -103,9 +103,9 @@ public static class CsvHeaderDetector
 
         // Check signals
         var score = 0;
-        var maxScore = 7;
+        var maxScore = 10;
 
-        // Signal 1: First row values don't match detected column types
+        // Signal 1: First row values don't match detected column types (weight: 3)
         var mismatchCount = 0;
         var checkCount = 0;
         for (var col = 0; col < firstRow.Count; col++)
@@ -124,7 +124,7 @@ public static class CsvHeaderDetector
         if (checkCount > 0 && mismatchCount >= checkCount * 0.6)
             score += 3;
 
-        // Signal 2: First row is all text while data has non-text
+        // Signal 2: First row is all text while data has non-text (weight: 2)
         var firstRowAllText = true;
         foreach (var val in headerValues)
         {
@@ -153,7 +153,7 @@ public static class CsvHeaderDetector
                 score += 2;
         }
 
-        // Signal 3: First row has no duplicates
+        // Signal 3: First row has no duplicates (weight: 1)
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var hasDuplicates = false;
         foreach (var val in headerValues)
@@ -167,7 +167,7 @@ public static class CsvHeaderDetector
         if (!hasDuplicates && seen.Count > 0)
             score += 1;
 
-        // Signal 4: First row values look like identifiers
+        // Signal 4: First row values look like identifiers (weight: 1)
         var headerLikeCount = 0;
         var nonEmptyCount = 0;
         foreach (var val in headerValues)
@@ -181,7 +181,122 @@ public static class CsvHeaderDetector
         if (nonEmptyCount > 0 && headerLikeCount >= nonEmptyCount * 0.8)
             score += 1;
 
+        // Signal 5: First row uses identifier naming conventions (PascalCase, snake_case, etc.) (weight: 3)
+        var identifierCount = 0;
+        foreach (var val in headerValues)
+        {
+            if (!string.IsNullOrWhiteSpace(val) && LooksLikeIdentifier(val))
+                identifierCount++;
+        }
+        if (nonEmptyCount > 0 && identifierCount >= nonEmptyCount * 0.6)
+            score += 3;
+
         return score >= maxScore / 2.0;
+    }
+
+    /// <summary>
+    /// Checks if a value looks like a programming identifier (PascalCase, snake_case, camelCase, etc.)
+    /// Does NOT match simple capitalized words as those are ambiguous (could be names).
+    /// </summary>
+    private static bool LooksLikeIdentifier(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 50)
+            return false;
+
+        var trimmed = value.Trim();
+
+        // Check for clear programming identifier patterns
+        // PascalCase or camelCase: multiple words joined, each starting with uppercase
+        if (IsPascalOrCamelCase(trimmed))
+            return true;
+
+        // snake_case or SCREAMING_SNAKE_CASE
+        if (trimmed.Contains("_") && !trimmed.Contains(" ") && IsValidSnakeCase(trimmed))
+            return true;
+
+        // kebab-case (common in some systems)
+        if (trimmed.Contains("-") && !trimmed.Contains(" ") && IsValidKebabCase(trimmed))
+            return true;
+
+        return false;
+    }
+
+    private static bool IsPascalOrCamelCase(string value)
+    {
+        if (value.Length < 2)
+            return false;
+
+        // Must start with a letter
+        if (!char.IsLetter(value[0]))
+            return false;
+
+        // Look for internal uppercase letters (indicates word boundaries)
+        var hasInternalUppercase = false;
+        for (var i = 1; i < value.Length; i++)
+        {
+            if (char.IsUpper(value[i]) && char.IsLower(value[i - 1]))
+            {
+                hasInternalUppercase = true;
+                break;
+            }
+        }
+
+        // Must be alphanumeric only
+        foreach (var c in value)
+        {
+            if (!char.IsLetterOrDigit(c))
+                return false;
+        }
+
+        return hasInternalUppercase;
+    }
+
+    private static bool IsValidSnakeCase(string value)
+    {
+        // snake_case: lowercase letters, digits, and underscores, no consecutive underscores
+        var prevWasUnderscore = true; // Treat start as underscore to reject leading underscore
+        foreach (var c in value)
+        {
+            if (c == '_')
+            {
+                if (prevWasUnderscore)
+                    return false;
+                prevWasUnderscore = true;
+            }
+            else if (char.IsLetterOrDigit(c))
+            {
+                prevWasUnderscore = false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        return !prevWasUnderscore; // Reject trailing underscore
+    }
+
+    private static bool IsValidKebabCase(string value)
+    {
+        // kebab-case: lowercase letters, digits, and hyphens
+        var prevWasHyphen = true; // Treat start as hyphen to reject leading hyphen
+        foreach (var c in value)
+        {
+            if (c == '-')
+            {
+                if (prevWasHyphen)
+                    return false;
+                prevWasHyphen = true;
+            }
+            else if (char.IsLetterOrDigit(c))
+            {
+                prevWasHyphen = false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        return !prevWasHyphen; // Reject trailing hyphen
     }
 
     private static bool FirstRowMismatchesDataTypes(CsvRow firstRow, IReadOnlyList<CsvRow> dataRows)

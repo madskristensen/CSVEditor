@@ -54,6 +54,7 @@
     <Compile Include="Classification\CsvStatusBarProvider.cs" />
     <Compile Include="Classification\CsvTagger.cs" />
     <Compile Include="Classification\CsvContentTypeDefinition.cs" />
+    <Compile Include="Classification\CsvTextViewCreationListener.cs" />
     <Compile Include="Commands\AlignColumnsCommand.cs" />
     <Compile Include="Commands\GoToColumnCommand.cs" />
     <Compile Include="Core\CsvCell.cs" />
@@ -85,6 +86,9 @@
       <Generator>VsixManifestGenerator</Generator>
       <LastGenOutput>source.extension.cs</LastGenOutput>
     </None>
+    <Content Include="..\LICENSE.txt">
+      <Link>Resources\LICENSE.txt</Link>
+    </Content>
     <Content Include="Resources\Icon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <IncludeInVSIX>true</IncludeInVSIX>

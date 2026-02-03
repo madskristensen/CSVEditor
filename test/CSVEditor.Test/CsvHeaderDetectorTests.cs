@@ -216,7 +216,9 @@ public class CsvHeaderDetectorTests
         {
             new() { "Name", "", "Age" },
             new() { "John", "", "25" },
-            new() { "Jane", "", "30" }
+            new() { "Jane", "", "30" },
+            new() { "Bob", "", "35" },
+            new() { "Alice", "", "40" }
         };
 
         // Should not throw, and should detect based on available data
