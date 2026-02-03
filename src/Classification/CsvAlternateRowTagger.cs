@@ -3,6 +3,8 @@ using System.ComponentModel.Composition;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Microsoft.VisualStudio.PlatformUI;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
@@ -48,18 +50,17 @@ internal sealed class CsvAlternateRowAdornment
     private readonly Stack<Rectangle> _rectanglePool = new();
     private readonly List<Rectangle> _activeRectangles = [];
 
-    // Light gray with opacity - works well in both light and dark themes
-    private static readonly Brush _rowBackgroundBrush = new SolidColorBrush(Color.FromArgb(30, 128, 128, 128));
-
-    static CsvAlternateRowAdornment()
-    {
-        _rowBackgroundBrush.Freeze();
-    }
+    // Theme-aware row background brush with opacity for alternating rows
+    private Brush _rowBackgroundBrush;
 
     public CsvAlternateRowAdornment(IWpfTextView textView)
     {
         _textView = textView;
         _layer = textView.GetAdornmentLayer(LayerName);
+
+        // Initialize theme-aware brush
+        UpdateRowBackgroundBrush();
+        VSColorTheme.ThemeChanged += OnThemeChanged;
 
         _textView.LayoutChanged += OnLayoutChanged;
         _textView.ViewportWidthChanged += OnViewportChanged;
@@ -77,12 +78,34 @@ internal sealed class CsvAlternateRowAdornment
         }
     }
 
+    private void UpdateRowBackgroundBrush()
+    {
+        // Use the ToolWindowText color with low opacity - it's designed to contrast with
+        // backgrounds in both light and dark themes, making it ideal for alternating rows
+        var themeColor = VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowTextColorKey);
+        Color wpfColor = Color.FromArgb(20, themeColor.R, themeColor.G, themeColor.B);
+        _rowBackgroundBrush = new SolidColorBrush(wpfColor);
+        _rowBackgroundBrush.Freeze();
+    }
+
+    private void OnThemeChanged(ThemeChangedEventArgs e)
+    {
+        UpdateRowBackgroundBrush();
+
+        // Update existing rectangles with new brush color
+        foreach (Rectangle rect in _activeRectangles)
+        {
+            rect.Fill = _rowBackgroundBrush;
+        }
+    }
+
     private void OnClosed(object sender, EventArgs e)
     {
         _textView.LayoutChanged -= OnLayoutChanged;
         _textView.ViewportWidthChanged -= OnViewportChanged;
         _textView.ViewportLeftChanged -= OnViewportChanged;
         _textView.Closed -= OnClosed;
+        VSColorTheme.ThemeChanged -= OnThemeChanged;
 
         // Clear pools
         _rectanglePool.Clear();
