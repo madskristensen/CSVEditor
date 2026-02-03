@@ -6,10 +6,22 @@
     "tags": [ "data", "csv", "tsv" ]
   },
   "assetFiles": [
-      "art/syntax-highlighting.png",
-      "art/column-alignment.png",
-      "art/quickinfo.png",
-      "art/error-detection.png"
+      {
+        "pathOnDisk": "art/syntax-highlighting.png",
+        "targetPath": "art/syntax-highlighting.png"
+      },
+      {
+        "pathOnDisk": "art/column-alignment.png",
+        "targetPath": "art/column-alignment.png"
+      },
+      {
+        "pathOnDisk": "art/quickinfo.png",
+        "targetPath": "art/quickinfo.png"
+      },
+      {
+        "pathOnDisk": "art/error-detection.png",
+        "targetPath": "art/error-detection.png"
+      }
     ],
   "overview": "README.md",
   "publisher": "MadsKristensen",
