@@ -133,7 +133,7 @@ public sealed class CsvParserTests
         var content = "Name,Age,City\nJohn,30,NYC";
         CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
 
-        Assert.AreEqual(3, doc.ColumnNames.Count);
+        Assert.HasCount(3, doc.ColumnNames);
         Assert.AreEqual("Name", doc.ColumnNames[0]);
         Assert.AreEqual("Age", doc.ColumnNames[1]);
         Assert.AreEqual("City", doc.ColumnNames[2]);
