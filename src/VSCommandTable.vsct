@@ -28,7 +28,7 @@
 
         <Button guid="CSVEditor" id="AlignColumnsCommand" priority="0x0100" type="Button">
           <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
-          <Icon guid="ImageCatalogGuid" id="AlignLeft" />
+          <Icon guid="ImageCatalogGuid" id="AlignHorizontalStretch" />
           <CommandFlag>IconIsMoniker</CommandFlag>
           <CommandFlag>DynamicVisibility</CommandFlag>
           <CommandFlag>DefaultInvisible</CommandFlag>
@@ -52,12 +52,12 @@
 
         <Button guid="CSVEditor" id="ToggleAlternateRowsCommand" priority="0x0102" type="Button">
           <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
-          <Icon guid="ImageCatalogGuid" id="ListView" />
+          <Icon guid="ImageCatalogGuid" id="ThreeRows" />
           <CommandFlag>IconIsMoniker</CommandFlag>
           <CommandFlag>DynamicVisibility</CommandFlag>
           <CommandFlag>DefaultInvisible</CommandFlag>
           <Strings>
-            <ButtonText>Toggle Alternate Row Colors</ButtonText>
+            <ButtonText>Toggle alternate row colors</ButtonText>
             <LocCanonicalName>.CSVEditor.ToggleAlternateRowsCommand</LocCanonicalName>
           </Strings>
         </Button>
