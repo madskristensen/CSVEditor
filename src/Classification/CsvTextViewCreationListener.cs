@@ -27,5 +27,11 @@ internal sealed class CsvTextViewCreationListener : IWpfTextViewCreationListener
 
         // Disable the change tracking margin (the colored bars showing edits)
         textView.Options.SetOptionValue(DefaultTextViewHostOptions.ChangeTrackingId, false);
+
+        // Disable the change tracking margin (the colored bars showing edits)
+        textView.Options.SetOptionValue(DefaultTextViewHostOptions.ChangeTrackingId, false);
+
+        // Disable the code suggestions margin
+        textView.Options.SetOptionValue(DefaultTextViewHostOptions.SuggestionMarginId, false);
     }
 }

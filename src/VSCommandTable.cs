@@ -25,7 +25,6 @@ namespace CSVEditor
     /// </summary>
     internal sealed partial class PackageIds
     {
-        public const int CsvMenuGroup = 0x0001;
         public const int CsvContextMenuGroup = 0x0002;
         public const int GoToColumnCommand = 0x0100;
         public const int AlignColumnsCommand = 0x0101;

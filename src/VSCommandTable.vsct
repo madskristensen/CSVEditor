@@ -8,9 +8,6 @@
 
   <Commands package="CSVEditor">
     <Groups>
-      <Group guid="CSVEditor" id="CsvMenuGroup" priority="0x0600">
-        <Parent guid="VSMainMenu" id="Edit"/>
-      </Group>
       <Group guid="CSVEditor" id="CsvContextMenuGroup" priority="0x0100">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
       </Group>
@@ -18,7 +15,7 @@
 
     <Buttons>
       <Button guid="CSVEditor" id="GoToColumnCommand" priority="0x0100" type="Button">
-        <Parent guid="CSVEditor" id="CsvMenuGroup" />
+        <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
         <Icon guid="ImageCatalogGuid" id="GoToNext" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
@@ -43,18 +40,14 @@
     </Buttons>
   </Commands>
 
-  <KeyBindings>
-    <KeyBinding guid="CSVEditor" id="GoToColumnCommand" editor="guidVSStd97" key1="G" mod1="Control" key2="C" mod2="Control" />
-  </KeyBindings>
-
   <VisibilityConstraints>
     <VisibilityItem guid="CSVEditor" id="AlignColumnsCommand" context="ContentType" />
+    <VisibilityItem guid="CSVEditor" id="GoToColumnCommand" context="ContentType" />
   </VisibilityConstraints>
 
   <Symbols>
     <GuidSymbol name="ContentType" value="{5b2dc8c1-5049-43fb-b02a-376196cec872}" />
     <GuidSymbol name="CSVEditor" value="{55b9ed45-59d1-40dc-8003-343d792221d7}">
-      <IDSymbol name="CsvMenuGroup" value="0x0001" />
       <IDSymbol name="CsvContextMenuGroup" value="0x0002" />
       <IDSymbol name="GoToColumnCommand" value="0x0100" />
       <IDSymbol name="AlignColumnsCommand" value="0x0101" />
