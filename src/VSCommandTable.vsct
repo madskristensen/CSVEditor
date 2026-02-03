@@ -34,7 +34,7 @@
         <Icon guid="ImageCatalogGuid" id="AlignLeft" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
-        <!--<CommandFlag>DefaultInvisible</CommandFlag>-->
+        <CommandFlag>DefaultInvisible</CommandFlag>
         <Strings>
           <ButtonText>Align CSV Columns</ButtonText>
           <LocCanonicalName>.CSVEditor.AlignColumnsCommand</LocCanonicalName>
@@ -47,7 +47,12 @@
     <KeyBinding guid="CSVEditor" id="GoToColumnCommand" editor="guidVSStd97" key1="G" mod1="Control" key2="C" mod2="Control" />
   </KeyBindings>
 
+  <VisibilityConstraints>
+    <VisibilityItem guid="CSVEditor" id="AlignColumnsCommand" context="ContentType" />
+  </VisibilityConstraints>
+
   <Symbols>
+    <GuidSymbol name="ContentType" value="{5b2dc8c1-5049-43fb-b02a-376196cec872}" />
     <GuidSymbol name="CSVEditor" value="{55b9ed45-59d1-40dc-8003-343d792221d7}">
       <IDSymbol name="CsvMenuGroup" value="0x0001" />
       <IDSymbol name="CsvContextMenuGroup" value="0x0002" />

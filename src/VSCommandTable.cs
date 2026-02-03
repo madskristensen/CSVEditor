@@ -13,6 +13,9 @@ namespace CSVEditor
     /// </summary>
     internal sealed partial class PackageGuids
     {
+        public const string ContentTypeString = "5b2dc8c1-5049-43fb-b02a-376196cec872";
+        public static Guid ContentType = new Guid(ContentTypeString);
+
         public const string CSVEditorString = "55b9ed45-59d1-40dc-8003-343d792221d7";
         public static Guid CSVEditor = new Guid(CSVEditorString);
     }
