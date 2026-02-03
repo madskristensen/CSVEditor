@@ -309,6 +309,11 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         // Don't add padding after the last column (no delimiter there)
         var columnsToProcess = Math.Min(row.Count - 1, _columnWidths.Length - 1);
         var fontSize = _textView.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize ?? 12;
+        var charWidth = GetCharacterWidth(_textView.TextViewLines);
+
+        // Get the delimiter to check if it's a tab
+        var delimiter = _cache.GetDelimiter(line.Snapshot);
+        var isTabDelimited = delimiter == '\t';
 
         for (var col = 0; col < columnsToProcess; col++)
         {
@@ -317,29 +322,58 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
             var maxCharWidth = _columnWidths[col];
             var paddingChars = maxCharWidth - cellCharWidth;
 
-            if (paddingChars > 0)
+            // Position of the delimiter character
+            var delimiterPos = cell.Span.Start + cell.Span.Length;
+
+            // Make sure we're within the line bounds
+            if (delimiterPos >= line.End.Position)
+                continue;
+
+            if (isTabDelimited)
             {
-                // Create padding element using cached resources to reduce allocations
-                var spacer = new TextBlock
+                // For TSV: REPLACE the tab character with a fixed-width spacer
+                // This hides the variable-width tab and provides consistent spacing
+                // Adding 2 to paddingChars: 1 for the tab we're replacing + 1 for column gap
+                var totalPaddingChars = paddingChars + 2;
+                var spacerWidth = totalPaddingChars * charWidth;
+
+                var spacer = new Border
                 {
-                    Text = new string(' ', paddingChars),
-                    FontFamily = _cachedFontFamily,
-                    FontSize = fontSize,
-                    Background = _transparentBrush,
-                    Foreground = _transparentBrush
+                    Width = spacerWidth,
+                    Height = fontSize,
+                    Background = _transparentBrush
                 };
 
-                // Position: after the delimiter (cell end + 1 for the delimiter)
-                var afterDelimiter = cell.Span.Start + cell.Span.Length + 1;
-
-                // Make sure we're within the line bounds
-                if (afterDelimiter > line.End.Position)
-                    continue;
-
-                var tagSpan = new SnapshotSpan(line.Snapshot, afterDelimiter, 0);
+                // Span length of 1 replaces the tab character with our adornment
+                var tagSpan = new SnapshotSpan(line.Snapshot, delimiterPos, 1);
                 var tag = new IntraTextAdornmentTag(spacer, null);
 
                 yield return new TagSpan<IntraTextAdornmentTag>(tagSpan, tag);
+            }
+            else
+            {
+                // For CSV and other delimiters: add padding after the delimiter
+                if (paddingChars > 0)
+                {
+                    var spacer = new TextBlock
+                    {
+                        Text = new string(' ', paddingChars),
+                        FontFamily = _cachedFontFamily,
+                        FontSize = fontSize,
+                        Background = _transparentBrush,
+                        Foreground = _transparentBrush
+                    };
+
+                    // Position: after the delimiter
+                    var afterDelimiter = delimiterPos + 1;
+                    if (afterDelimiter > line.End.Position)
+                        continue;
+
+                    var tagSpan = new SnapshotSpan(line.Snapshot, afterDelimiter, 0);
+                    var tag = new IntraTextAdornmentTag(spacer, null);
+
+                    yield return new TagSpan<IntraTextAdornmentTag>(tagSpan, tag);
+                }
             }
         }
     }
