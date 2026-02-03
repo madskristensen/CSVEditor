@@ -1,6 +1,6 @@
 {
   "$schema": "http://json.schemastore.org/vsix-publish",
-  "categories": [ "data", "database" ],
+  "categories": [ "data" ],
   "identity": {
     "internalName": "CSVEditor",
     "tags": [ "data", "csv", "tsv" ]
