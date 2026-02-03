@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using CSVEditor.Core;
@@ -36,21 +35,21 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
 {
     private readonly ITextBuffer _textBuffer;
     private readonly Dictionary<string, IClassificationType> _classificationTypes;
-    private char _detectedDelimiter = ',';
-    private bool _delimiterDetected;
+    private readonly CsvBufferCache _cache;
 
     public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
     public CsvTagger(ITextBuffer textBuffer, IClassificationTypeRegistryService classificationRegistry)
     {
         _textBuffer = textBuffer;
-        _classificationTypes = new Dictionary<string, IClassificationType>();
+        _classificationTypes = [];
+        _cache = CsvBufferCache.GetOrCreate(textBuffer);
 
         // Pre-cache classification types
         for (var i = 0; i < CsvClassificationTypes.ColorCount; i++)
         {
             var name = CsvClassificationTypes.GetColumnClassificationType(i);
-            var classificationType = classificationRegistry.GetClassificationType(name);
+            IClassificationType classificationType = classificationRegistry.GetClassificationType(name);
             if (classificationType != null)
             {
                 _classificationTypes[name] = classificationType;
@@ -62,21 +61,11 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
 
     private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
     {
-        // Re-detect delimiter on significant changes
-        if (e.Changes.Count > 0)
+        // Notify that tags may have changed for affected lines only
+        foreach (ITextChange change in e.Changes)
         {
-            var firstChange = e.Changes[0];
-            if (firstChange.OldPosition < 500)
-            {
-                _delimiterDetected = false;
-            }
-        }
-
-        // Notify that tags may have changed for affected lines
-        foreach (var change in e.Changes)
-        {
-            var startLine = e.After.GetLineFromPosition(change.NewPosition);
-            var endLine = e.After.GetLineFromPosition(change.NewEnd);
+            ITextSnapshotLine startLine = e.After.GetLineFromPosition(change.NewPosition);
+            ITextSnapshotLine endLine = e.After.GetLineFromPosition(change.NewEnd);
             var changedSpan = new SnapshotSpan(startLine.Start, endLine.End);
             TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(changedSpan));
         }
@@ -87,36 +76,22 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
         if (spans.Count == 0)
             yield break;
 
-        var snapshot = spans[0].Snapshot;
+        ITextSnapshot snapshot = spans[0].Snapshot;
 
-        if (!_delimiterDetected)
+        foreach (SnapshotSpan span in spans)
         {
-            DetectDelimiter(snapshot);
-        }
-
-        foreach (var span in spans)
-        {
-            var startLine = snapshot.GetLineFromPosition(span.Start);
-            var endLine = snapshot.GetLineFromPosition(span.End);
+            ITextSnapshotLine startLine = snapshot.GetLineFromPosition(span.Start);
+            ITextSnapshotLine endLine = snapshot.GetLineFromPosition(span.End);
 
             for (var lineNumber = startLine.LineNumber; lineNumber <= endLine.LineNumber; lineNumber++)
             {
-                var line = snapshot.GetLineFromLineNumber(lineNumber);
-                foreach (var tag in GetLineTags(line))
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNumber);
+                foreach (ITagSpan<IClassificationTag> tag in GetLineTags(line))
                 {
                     yield return tag;
                 }
             }
         }
-    }
-
-    private void DetectDelimiter(ITextSnapshot snapshot)
-    {
-        var length = Math.Min(snapshot.Length, 2000);
-        var text = snapshot.GetText(0, length);
-        var delimiter = DelimiterDetector.Detect(text);
-        _detectedDelimiter = delimiter.ToChar();
-        _delimiterDetected = true;
     }
 
     private IEnumerable<ITagSpan<IClassificationTag>> GetLineTags(ITextSnapshotLine line)
@@ -125,20 +100,20 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
         if (string.IsNullOrEmpty(lineText))
             yield break;
 
-        // Use CsvParser to parse the line
-        var row = CsvParser.ParseLine(lineText, _detectedDelimiter, line.LineNumber, line.Start.Position);
+        // Use shared cache to get parsed line
+        CsvRow row = _cache.GetParsedLine(line);
 
-                        foreach (var cell in row)
-                        {
-                            if (cell.Span.Length > 0)
-                            {
-                                var classificationName = CsvClassificationTypes.GetColumnClassificationType(cell.ColumnIndex);
-                                if (_classificationTypes.TryGetValue(classificationName, out var classificationType))
-                                {
-                                    var cellSpan = new SnapshotSpan(line.Snapshot, cell.Span.Start, cell.Span.Length);
-                                    yield return new TagSpan<IClassificationTag>(cellSpan, new ClassificationTag(classificationType));
-                                }
-                            }
-                        }
-                    }
+        foreach (CsvCell cell in row)
+        {
+            if (cell.Span.Length > 0)
+            {
+                var classificationName = CsvClassificationTypes.GetColumnClassificationType(cell.ColumnIndex);
+                if (_classificationTypes.TryGetValue(classificationName, out IClassificationType classificationType))
+                {
+                    var cellSpan = new SnapshotSpan(line.Snapshot, cell.Span.Start, cell.Span.Length);
+                    yield return new TagSpan<IClassificationTag>(cellSpan, new ClassificationTag(classificationType));
                 }
+            }
+        }
+    }
+}

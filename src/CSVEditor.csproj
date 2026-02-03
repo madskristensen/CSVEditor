@@ -45,6 +45,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Classification\CsvBufferCache.cs" />
     <Compile Include="Classification\CsvClassificationTypes.cs" />
     <Compile Include="Classification\CsvClassifier.cs" />
     <Compile Include="Classification\CsvColumnAlignmentAdornment.cs" />

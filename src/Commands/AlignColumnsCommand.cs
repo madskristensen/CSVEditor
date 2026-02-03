@@ -7,11 +7,11 @@ internal sealed class AlignColumnsCommand : BaseCommand<AlignColumnsCommand>
 {
     protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
     {
-        var docView = await VS.Documents.GetActiveDocumentViewAsync();
+        DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
         if (docView?.TextView?.TextBuffer == null)
             return;
 
-        var buffer = docView.TextView.TextBuffer;
+        ITextBuffer buffer = docView.TextView.TextBuffer;
         
         // Toggle alignment state for this buffer
         var isEnabled = CsvAlignmentState.IsEnabled(buffer);
@@ -25,7 +25,7 @@ internal sealed class AlignColumnsCommand : BaseCommand<AlignColumnsCommand>
     {
         ThreadHelper.JoinableTaskFactory.Run(async () =>
         {
-            var docView = await VS.Documents.GetActiveDocumentViewAsync();
+            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
             var contentType = docView?.TextView?.TextBuffer?.ContentType?.TypeName;
             var isCsv = contentType == "csv" || contentType == "tsv";
             

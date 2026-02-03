@@ -64,11 +64,11 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
         if (_disposed)
             return null;
 
-        var triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
+        SnapshotPoint? triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
         if (!triggerPoint.HasValue)
             return null;
 
-        var snapshot = _textBuffer.CurrentSnapshot;
+        ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
         var position = triggerPoint.Value.Position;
 
         if (!_delimiterDetected)
@@ -77,11 +77,11 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
         }
 
         // Parse current line using CsvParser
-        var line = snapshot.GetLineFromPosition(position);
-        var row = CsvParser.ParseLine(line.GetText(), _detectedDelimiter, line.LineNumber, line.Start.Position);
+        ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
+        CsvRow row = CsvParser.ParseLine(line.GetText(), _detectedDelimiter, line.LineNumber, line.Start.Position);
 
         // Find the cell at the hover position
-        var cell = row.GetCellAtPosition(position);
+        CsvCell cell = row.GetCellAtPosition(position);
         if (cell == null)
             return null;
 
@@ -89,7 +89,7 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
         // Create tracking span for the cell
         var cellSpan = new SnapshotSpan(snapshot, cell.Span.Start, cell.Span.Length);
-        var trackingSpan = snapshot.CreateTrackingSpan(cellSpan, SpanTrackingMode.EdgeInclusive);
+        ITrackingSpan trackingSpan = snapshot.CreateTrackingSpan(cellSpan, SpanTrackingMode.EdgeInclusive);
 
         // Build tooltip content (must be on UI thread for WPF elements)
         object content;
@@ -113,7 +113,7 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
         var length = Math.Min(snapshot.Length, 2000);
         var text = snapshot.GetText(0, length);
 
-        var delimiter = DelimiterDetector.Detect(text);
+        CsvDelimiter delimiter = DelimiterDetector.Detect(text);
         _detectedDelimiter = delimiter.ToChar();
         _delimiterDetected = true;
 
@@ -207,7 +207,7 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
     private void SortByColumn(int columnIndex, bool ascending)
     {
-        var snapshot = _textBuffer.CurrentSnapshot;
+        ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
 
         if (snapshot.LineCount < 2)
             return;
@@ -217,14 +217,14 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
         for (var i = 1; i < snapshot.LineCount; i++)
         {
-            var line = snapshot.GetLineFromLineNumber(i);
+            ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
             var lineText = line.GetText();
 
             // Skip empty lines
             if (string.IsNullOrWhiteSpace(lineText))
                 continue;
 
-            var row = CsvParser.ParseLine(lineText, _detectedDelimiter, i);
+            CsvRow row = CsvParser.ParseLine(lineText, _detectedDelimiter, i);
             var sortValue = columnIndex < row.Count ? row[columnIndex].Value : "";
 
             dataRows.Add((i, lineText, sortValue));
@@ -252,10 +252,10 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
         // Build the new document content
         var sb = new StringBuilder();
-        var headerLine = snapshot.GetLineFromLineNumber(0);
+        ITextSnapshotLine headerLine = snapshot.GetLineFromLineNumber(0);
         sb.AppendLine(headerLine.GetText()); // Keep header first
 
-        foreach (var row in sortedRows)
+        foreach ((int lineNumber, string lineText, string sortValue) row in sortedRows)
         {
             sb.AppendLine(row.lineText);
         }
@@ -271,7 +271,7 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
         // Replace document content
         var newText = sb.ToString();
 
-        using (var edit = _textBuffer.CreateEdit())
+        using (ITextEdit edit = _textBuffer.CreateEdit())
         {
             edit.Replace(new Microsoft.VisualStudio.Text.Span(0, snapshot.Length), newText);
             edit.Apply();

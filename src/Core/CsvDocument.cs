@@ -49,7 +49,7 @@ public sealed class CsvDocument : IReadOnlyList<CsvRow>
         if (rows.Count > 0)
         {
             var names = new List<string>(rows[0].Count);
-            foreach (var cell in rows[0])
+            foreach (CsvCell cell in rows[0])
             {
                 names.Add(cell.Value);
             }
@@ -62,7 +62,7 @@ public sealed class CsvDocument : IReadOnlyList<CsvRow>
 
         // Calculate max column count
         var maxCount = 0;
-        foreach (var row in rows)
+        foreach (CsvRow row in rows)
         {
             if (row.Count > maxCount)
                 maxCount = row.Count;
@@ -89,7 +89,7 @@ public sealed class CsvDocument : IReadOnlyList<CsvRow>
     /// </summary>
     public CsvCell GetCellAtPosition(int position)
     {
-        foreach (var row in _rows)
+        foreach (CsvRow row in _rows)
         {
             if (row.Span.Contains(position))
             {
@@ -104,7 +104,7 @@ public sealed class CsvDocument : IReadOnlyList<CsvRow>
     /// </summary>
     public CsvRow GetRowAtPosition(int position)
     {
-        foreach (var row in _rows)
+        foreach (CsvRow row in _rows)
         {
             if (row.Span.Contains(position))
                 return row;
@@ -117,9 +117,9 @@ public sealed class CsvDocument : IReadOnlyList<CsvRow>
     /// </summary>
     public IEnumerable<CsvCell> GetColumn(int columnIndex)
     {
-        foreach (var row in _rows)
+        foreach (CsvRow row in _rows)
         {
-            var cell = row.GetCellOrDefault(columnIndex);
+            CsvCell cell = row.GetCellOrDefault(columnIndex);
             if (cell != null)
                 yield return cell;
         }

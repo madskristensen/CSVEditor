@@ -12,12 +12,12 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
 {
     protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
     {
-        var docView = await VS.Documents.GetActiveDocumentViewAsync();
+        DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
         if (docView?.TextView == null)
             return;
 
-        var textView = docView.TextView;
-        var snapshot = textView.TextSnapshot;
+        IWpfTextView textView = docView.TextView;
+        ITextSnapshot snapshot = textView.TextSnapshot;
 
         // Detect delimiter
         var length = Math.Min(snapshot.Length, 2000);
@@ -32,7 +32,7 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
         }
 
         var headerLine = snapshot.GetLineFromLineNumber(0).GetText();
-        var headerRow = CsvParser.ParseLine(headerLine, delimiter, 0);
+        CsvRow headerRow = CsvParser.ParseLine(headerLine, delimiter, 0);
 
         if (headerRow.Count == 0)
         {
@@ -75,7 +75,7 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
     {
         ThreadHelper.JoinableTaskFactory.Run(async () =>
         {
-            var docView = await VS.Documents.GetActiveDocumentViewAsync();
+            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
             var contentType = docView?.TextView?.TextBuffer?.ContentType?.TypeName;
             Command.Visible = contentType == "csv" || contentType == "tsv";
         });
@@ -108,15 +108,15 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
 
     private void NavigateToColumn(ITextView textView, char delimiter, int targetColumn)
     {
-        var snapshot = textView.TextSnapshot;
+        ITextSnapshot snapshot = textView.TextSnapshot;
         var caretPosition = textView.Caret.Position.BufferPosition.Position;
-        var line = snapshot.GetLineFromPosition(caretPosition);
+        ITextSnapshotLine line = snapshot.GetLineFromPosition(caretPosition);
 
         // Parse current line using CsvParser
-        var row = CsvParser.ParseLine(line.GetText(), delimiter, line.LineNumber, line.Start.Position);
+        CsvRow row = CsvParser.ParseLine(line.GetText(), delimiter, line.LineNumber, line.Start.Position);
 
         // Get the target cell
-        var cell = row.GetCellOrDefault(targetColumn);
+        CsvCell cell = row.GetCellOrDefault(targetColumn);
         if (cell != null)
         {
             var point = new SnapshotPoint(snapshot, cell.Span.Start);

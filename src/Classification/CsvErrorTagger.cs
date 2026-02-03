@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using CSVEditor.Core;
@@ -32,33 +31,27 @@ internal sealed class CsvErrorTaggerProvider : IViewTaggerProvider
 internal sealed class CsvErrorTagger : ITagger<IErrorTag>
 {
     private readonly ITextBuffer _textBuffer;
-    private char _detectedDelimiter = ',';
-    private bool _delimiterDetected;
-    private int _expectedColumnCount = -1;
+    private readonly CsvBufferCache _cache;
 
     public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
     public CsvErrorTagger(ITextBuffer textBuffer)
     {
         _textBuffer = textBuffer;
+        _cache = CsvBufferCache.GetOrCreate(textBuffer);
         _textBuffer.Changed += OnTextBufferChanged;
     }
 
     private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
     {
-        if (e.Changes.Count > 0)
+        // Only invalidate affected lines, not the entire document
+        foreach (ITextChange change in e.Changes)
         {
-            var firstChange = e.Changes[0];
-            if (firstChange.OldPosition < 500)
-            {
-                _delimiterDetected = false;
-                _expectedColumnCount = -1;
-            }
+            ITextSnapshotLine startLine = e.After.GetLineFromPosition(change.NewPosition);
+            ITextSnapshotLine endLine = e.After.GetLineFromPosition(change.NewEnd);
+            var changedSpan = new SnapshotSpan(startLine.Start, endLine.End);
+            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(changedSpan));
         }
-
-        var snapshot = e.After;
-        var fullSpan = new SnapshotSpan(snapshot, 0, snapshot.Length);
-        TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(fullSpan));
     }
 
     public IEnumerable<ITagSpan<IErrorTag>> GetTags(NormalizedSnapshotSpanCollection spans)
@@ -66,22 +59,18 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
         if (spans.Count == 0)
             yield break;
 
-        var snapshot = spans[0].Snapshot;
+        ITextSnapshot snapshot = spans[0].Snapshot;
+        var expectedColumnCount = _cache.GetExpectedColumnCount(snapshot);
 
-        if (!_delimiterDetected)
+        foreach (SnapshotSpan span in spans)
         {
-            DetectDelimiterAndColumnCount(snapshot);
-        }
-
-        foreach (var span in spans)
-        {
-            var startLine = snapshot.GetLineFromPosition(span.Start);
-            var endLine = snapshot.GetLineFromPosition(span.End);
+            ITextSnapshotLine startLine = snapshot.GetLineFromPosition(span.Start);
+            ITextSnapshotLine endLine = snapshot.GetLineFromPosition(span.End);
 
             for (var lineNumber = startLine.LineNumber; lineNumber <= endLine.LineNumber; lineNumber++)
             {
-                var line = snapshot.GetLineFromLineNumber(lineNumber);
-                foreach (var error in ValidateLine(line, lineNumber))
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNumber);
+                foreach (ITagSpan<IErrorTag> error in ValidateLine(line, lineNumber, expectedColumnCount))
                 {
                     yield return error;
                 }
@@ -89,36 +78,18 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
         }
     }
 
-    private void DetectDelimiterAndColumnCount(ITextSnapshot snapshot)
-    {
-        var length = Math.Min(snapshot.Length, 2000);
-        var text = snapshot.GetText(0, length);
-
-        var delimiter = DelimiterDetector.Detect(text);
-        _detectedDelimiter = delimiter.ToChar();
-        _delimiterDetected = true;
-
-        // Get expected column count from header row using CsvParser
-        if (snapshot.LineCount > 0)
-        {
-            var headerLine = snapshot.GetLineFromLineNumber(0).GetText();
-            var headerRow = CsvParser.ParseLine(headerLine, _detectedDelimiter, 0);
-            _expectedColumnCount = headerRow.Count;
-        }
-    }
-
-    private IEnumerable<ITagSpan<IErrorTag>> ValidateLine(ITextSnapshotLine line, int lineNumber)
+    private IEnumerable<ITagSpan<IErrorTag>> ValidateLine(ITextSnapshotLine line, int lineNumber, int expectedColumnCount)
     {
         var lineText = line.GetText();
 
         if (string.IsNullOrEmpty(lineText))
             yield break;
 
-        // Use CsvParser to parse the line
-        var row = CsvParser.ParseLine(lineText, _detectedDelimiter, lineNumber, line.Start.Position);
+        // Use shared cache to get parsed line
+        CsvRow row = _cache.GetParsedLine(line);
 
         // Check for unclosed quotes by looking for cells that start with quote but aren't marked as quoted properly
-        var unclosedQuoteError = CheckUnclosedQuotes(line, lineText);
+        ITagSpan<IErrorTag> unclosedQuoteError = CheckUnclosedQuotes(line, lineText);
         if (unclosedQuoteError != null)
         {
             yield return unclosedQuoteError;
@@ -126,14 +97,14 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
         }
 
         // Check column count (skip header row)
-        if (lineNumber > 0 && _expectedColumnCount > 0)
+        if (lineNumber > 0 && expectedColumnCount > 0)
         {
-            if (row.Count != _expectedColumnCount)
+            if (row.Count != expectedColumnCount)
             {
                 var errorSpan = new SnapshotSpan(line.Start, line.Length);
-                var errorMessage = row.Count < _expectedColumnCount
-                    ? $"Too few columns: expected {_expectedColumnCount}, found {row.Count}"
-                    : $"Too many columns: expected {_expectedColumnCount}, found {row.Count}";
+                var errorMessage = row.Count < expectedColumnCount
+                    ? $"Too few columns: expected {expectedColumnCount}, found {row.Count}"
+                    : $"Too many columns: expected {expectedColumnCount}, found {row.Count}";
 
                 yield return new TagSpan<IErrorTag>(
                     errorSpan,
@@ -168,12 +139,12 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
 
         if (inQuotes && quoteStartIndex >= 0)
         {
-                        var errorSpan = new SnapshotSpan(line.Start + quoteStartIndex, line.End);
-                        return new TagSpan<IErrorTag>(
-                            errorSpan,
-                            new ErrorTag(PredefinedErrorTypeNames.SyntaxError, "Unclosed quote"));
-                    }
+            var errorSpan = new SnapshotSpan(line.Start + quoteStartIndex, line.End);
+            return new TagSpan<IErrorTag>(
+                errorSpan,
+                new ErrorTag(PredefinedErrorTypeNames.SyntaxError, "Unclosed quote"));
+        }
 
-                    return null;
-                }
-            }
+        return null;
+    }
+}

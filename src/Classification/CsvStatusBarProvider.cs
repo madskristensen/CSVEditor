@@ -61,7 +61,7 @@ internal sealed class CsvStatusBarController : IDisposable
 
         try
         {
-            var snapshot = _textView.TextSnapshot;
+            ITextSnapshot snapshot = _textView.TextSnapshot;
             var caretPosition = _textView.Caret.Position.BufferPosition.Position;
 
             if (!_delimiterDetected)
@@ -70,11 +70,11 @@ internal sealed class CsvStatusBarController : IDisposable
             }
 
             // Parse current line using CsvParser
-            var line = snapshot.GetLineFromPosition(caretPosition);
-            var row = CsvParser.ParseLine(line.GetText(), _detectedDelimiter, line.LineNumber, line.Start.Position);
+            ITextSnapshotLine line = snapshot.GetLineFromPosition(caretPosition);
+            CsvRow row = CsvParser.ParseLine(line.GetText(), _detectedDelimiter, line.LineNumber, line.Start.Position);
 
             // Find which cell contains the caret
-            var cell = row.GetCellAtPosition(caretPosition);
+            CsvCell cell = row.GetCellAtPosition(caretPosition);
             var columnIndex = cell?.ColumnIndex ?? 0;
             var columnName = GetColumnName(columnIndex);
             var totalColumns = _headerRow?.Count ?? row.Count;
@@ -93,7 +93,7 @@ internal sealed class CsvStatusBarController : IDisposable
         var length = Math.Min(snapshot.Length, 2000);
         var text = snapshot.GetText(0, length);
 
-        var delimiter = DelimiterDetector.Detect(text);
+        CsvDelimiter delimiter = DelimiterDetector.Detect(text);
         _detectedDelimiter = delimiter.ToChar();
         _delimiterDetected = true;
 

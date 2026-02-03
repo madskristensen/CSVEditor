@@ -49,7 +49,7 @@ public sealed class CsvParser
     /// </summary>
     public static CsvDocument Parse(string content)
     {
-        var delimiter = DelimiterDetector.Detect(content);
+        CsvDelimiter delimiter = DelimiterDetector.Detect(content);
         return Parse(content, delimiter);
     }
 
@@ -70,7 +70,7 @@ public sealed class CsvParser
 
         while (position <= line.Length)
         {
-            var cell = ParseCell(line, delimiter, ref position, columnIndex, lineStartOffset);
+            CsvCell cell = ParseCell(line, delimiter, ref position, columnIndex, lineStartOffset);
             cells.Add(cell);
             columnIndex++;
 
@@ -114,7 +114,7 @@ public sealed class CsvParser
 
         while (_position < _content.Length)
         {
-            var row = ParseRow();
+            CsvRow row = ParseRow();
             rows.Add(row);
         }
 
@@ -129,7 +129,7 @@ public sealed class CsvParser
 
         while (_position < _content.Length)
         {
-            var cell = ParseCellInstance(columnIndex);
+            CsvCell cell = ParseCellInstance(columnIndex);
             cells.Add(cell);
             columnIndex++;
 

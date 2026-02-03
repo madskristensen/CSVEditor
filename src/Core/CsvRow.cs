@@ -50,7 +50,7 @@ public sealed class CsvRow : IReadOnlyList<CsvCell>
     /// </summary>
     public CsvCell GetCellAtPosition(int position)
     {
-        foreach (var cell in _cells)
+        foreach (CsvCell cell in _cells)
         {
             if (cell.Span.Contains(position))
                 return cell;

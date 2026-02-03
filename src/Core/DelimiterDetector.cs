@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 
 
@@ -11,13 +10,13 @@ namespace CSVEditor.Core;
 /// </summary>
 public static class DelimiterDetector
 {
-    private static readonly CsvDelimiter[] CandidateDelimiters = new[]
-    {
+    private static readonly CsvDelimiter[] _candidateDelimiters =
+    [
         CsvDelimiter.Comma,
         CsvDelimiter.Tab,
         CsvDelimiter.Semicolon,
         CsvDelimiter.Pipe
-    };
+    ];
 
     /// <summary>
     /// Detects the most likely delimiter used in the given CSV content.
@@ -30,15 +29,15 @@ public static class DelimiterDetector
         if (string.IsNullOrEmpty(content))
             return CsvDelimiter.Comma;
 
-        var lines = GetFirstLines(content, maxLinesToAnalyze);
+        List<string> lines = GetFirstLines(content, maxLinesToAnalyze);
         if (lines.Count == 0)
             return CsvDelimiter.Comma;
 
         // Score each delimiter based on consistency across lines
-        var bestDelimiter = CsvDelimiter.Comma;
+        CsvDelimiter bestDelimiter = CsvDelimiter.Comma;
         var bestScore = -1.0;
 
-        foreach (var delimiter in CandidateDelimiters)
+        foreach (CsvDelimiter delimiter in _candidateDelimiters)
         {
             var score = ScoreDelimiter(lines, delimiter.ToChar());
             if (score > bestScore)
@@ -70,9 +69,14 @@ public static class DelimiterDetector
         if (counts[0] < 2)
             return 0;
 
-        // Calculate consistency score
+        // Calculate consistency score - use loop instead of LINQ to avoid allocations
         var firstCount = counts[0];
-        var consistentLines = counts.Count(c => c == firstCount);
+        var consistentLines = 0;
+        for (var i = 0; i < counts.Count; i++)
+        {
+            if (counts[i] == firstCount)
+                consistentLines++;
+        }
         var consistencyScore = (double)consistentLines / counts.Count;
 
         // Bonus for having more fields (comma in text might only split once)

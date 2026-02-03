@@ -1,3 +1,4 @@
+using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 
 namespace BenchmarkSuite1
@@ -6,7 +7,7 @@ namespace BenchmarkSuite1
     {
         static void Main(string[] args)
         {
-            var _ = BenchmarkRunner.Run(typeof(Program).Assembly);
+            Summary[] _ = BenchmarkRunner.Run(typeof(Program).Assembly);
         }
     }
 }
