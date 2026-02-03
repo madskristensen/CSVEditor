@@ -10,7 +10,7 @@ namespace CSVEditor.Classification;
 /// </summary>
 internal sealed class CsvBufferCache
 {
-    private static readonly object _cacheKey = new object();
+    private static readonly object _cacheKey = new();
     private const int MaxLinesToSampleForTypes = 100;
 
     private readonly ITextBuffer _buffer;

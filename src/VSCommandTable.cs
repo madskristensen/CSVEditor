@@ -28,5 +28,7 @@ namespace CSVEditor
         public const int CsvContextMenuGroup = 0x0002;
         public const int GoToColumnCommand = 0x0100;
         public const int AlignColumnsCommand = 0x0101;
+        public const int ShrinkColumnsCommand = 0x0102;
+        public const int ToggleAlternateRowsCommand = 0x0103;
     }
 }

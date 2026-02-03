@@ -45,7 +45,7 @@ internal sealed class AlignColumnsCommand : BaseCommand<AlignColumnsCommand>
 /// </summary>
 internal static class CsvAlignmentState
 {
-    private static readonly object AlignmentEnabledKey = new object();
+    private static readonly object AlignmentEnabledKey = new();
 
     public static bool IsEnabled(ITextBuffer buffer)
     {

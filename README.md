@@ -19,7 +19,9 @@ or get the [CI build][vsixgallery].
 ## ✨ Key Features at a Glance
 
 - **Syntax Highlighting** — Color-coded columns for instant visual parsing
-- **Column Alignment** — Align columns with a single command for table-like readability
+- **Column Alignment** — Align columns visually with a single command for table-like readability
+- **Shrink Columns** — Remove leading/trailing whitespace from all cells
+- **Alternate Row Colors** — Toggle alternating row backgrounds for improved readability
 - **Smart Header Detection** — Automatically identifies header rows
 - **QuickInfo Tooltips** — Hover over any cell to see column name, index, and detected data type
 - **Column Sorting** — Sort ascending or descending directly from the tooltip
@@ -47,9 +49,25 @@ Each column gets its own color, making it easy to visually track data across row
 
 ### Column Alignment
 
-Use **Edit > Advanced > Align CSV Columns** to pad columns with spaces for perfect alignment. Your CSV becomes as readable as a formatted table.
+Right-click and select **Align CSV Columns** to visually align columns for perfect readability. This uses virtual alignment (adornments) — your file content is not modified.
 
 ![Column Alignment](art/column-alignment.png)
+
+### Shrink Columns
+
+Right-click and select **Shrink CSV Columns** to remove leading and trailing whitespace from all cells. This is useful to:
+
+- Clean up messy data with accidental spaces
+- Reduce file size by removing unnecessary whitespace
+- Prepare data for processing by systems that don't trim automatically
+
+### Alternate Row Colors
+
+Right-click and select **Toggle Alternate Row Colors** to highlight odd and even rows with alternating background colors. This significantly improves readability for:
+
+- Wide tables with many columns
+- Tables viewed in word-wrap mode
+- Quick visual scanning of data
 
 ### QuickInfo Tooltips
 
@@ -83,3 +101,4 @@ Should you encounter bugs or have feature requests, head over to the [GitHub rep
 Pull requests are also very welcome, as I can't always get around to fixing all bugs myself. This is a personal passion project, so my time is limited.
 
 Another way to help out is to [sponsor me on GitHub](https://github.com/sponsors/madskristensen).
+

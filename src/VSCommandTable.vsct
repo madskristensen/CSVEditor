@@ -26,23 +26,49 @@
         </Strings>
       </Button>
 
-      <Button guid="CSVEditor" id="AlignColumnsCommand" priority="0x0100" type="Button">
-        <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
-        <Icon guid="ImageCatalogGuid" id="AlignLeft" />
-        <CommandFlag>IconIsMoniker</CommandFlag>
-        <CommandFlag>DynamicVisibility</CommandFlag>
-        <CommandFlag>DefaultInvisible</CommandFlag>
-        <Strings>
-          <ButtonText>Align CSV Columns</ButtonText>
-          <LocCanonicalName>.CSVEditor.AlignColumnsCommand</LocCanonicalName>
-        </Strings>
-      </Button>
-    </Buttons>
+        <Button guid="CSVEditor" id="AlignColumnsCommand" priority="0x0100" type="Button">
+          <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
+          <Icon guid="ImageCatalogGuid" id="AlignLeft" />
+          <CommandFlag>IconIsMoniker</CommandFlag>
+          <CommandFlag>DynamicVisibility</CommandFlag>
+          <CommandFlag>DefaultInvisible</CommandFlag>
+          <Strings>
+            <ButtonText>Align CSV Columns</ButtonText>
+            <LocCanonicalName>.CSVEditor.AlignColumnsCommand</LocCanonicalName>
+          </Strings>
+        </Button>
+
+        <Button guid="CSVEditor" id="ShrinkColumnsCommand" priority="0x0101" type="Button">
+          <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
+          <Icon guid="ImageCatalogGuid" id="CollapseAll" />
+          <CommandFlag>IconIsMoniker</CommandFlag>
+          <CommandFlag>DynamicVisibility</CommandFlag>
+          <CommandFlag>DefaultInvisible</CommandFlag>
+          <Strings>
+            <ButtonText>Shrink CSV Columns</ButtonText>
+            <LocCanonicalName>.CSVEditor.ShrinkColumnsCommand</LocCanonicalName>
+          </Strings>
+        </Button>
+
+        <Button guid="CSVEditor" id="ToggleAlternateRowsCommand" priority="0x0102" type="Button">
+          <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
+          <Icon guid="ImageCatalogGuid" id="ListView" />
+          <CommandFlag>IconIsMoniker</CommandFlag>
+          <CommandFlag>DynamicVisibility</CommandFlag>
+          <CommandFlag>DefaultInvisible</CommandFlag>
+          <Strings>
+            <ButtonText>Toggle Alternate Row Colors</ButtonText>
+            <LocCanonicalName>.CSVEditor.ToggleAlternateRowsCommand</LocCanonicalName>
+          </Strings>
+        </Button>
+      </Buttons>
   </Commands>
 
   <VisibilityConstraints>
     <VisibilityItem guid="CSVEditor" id="AlignColumnsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="GoToColumnCommand" context="ContentType" />
+    <VisibilityItem guid="CSVEditor" id="ShrinkColumnsCommand" context="ContentType" />
+    <VisibilityItem guid="CSVEditor" id="ToggleAlternateRowsCommand" context="ContentType" />
   </VisibilityConstraints>
 
   <Symbols>
@@ -51,6 +77,8 @@
       <IDSymbol name="CsvContextMenuGroup" value="0x0002" />
       <IDSymbol name="GoToColumnCommand" value="0x0100" />
       <IDSymbol name="AlignColumnsCommand" value="0x0101" />
+      <IDSymbol name="ShrinkColumnsCommand" value="0x0102" />
+      <IDSymbol name="ToggleAlternateRowsCommand" value="0x0103" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

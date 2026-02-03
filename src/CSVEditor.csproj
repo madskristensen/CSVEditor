@@ -45,12 +45,15 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Classification\CsvAlternateRowTagger.cs" />
     <Compile Include="Classification\CsvBufferCache.cs" />
     <Compile Include="Classification\CsvClassificationTypes.cs" />
     <Compile Include="Classification\CsvClassifier.cs" />
     <Compile Include="Adornments\CsvColumnAlignmentTagger.cs" />
     <Compile Include="Adornments\CsvColumnAlignmentTaggerProvider.cs" />
     <Compile Include="Classification\CsvErrorTagger.cs" />
+    <Compile Include="Commands\ShrinkColumnsCommand.cs" />
+    <Compile Include="Commands\ToggleAlternateRowsCommand.cs" />
     <Compile Include="QuickInfo\CsvQuickInfoSource.cs" />
     <Compile Include="Classification\CsvStatusBarProvider.cs" />
     <Compile Include="Classification\CsvTagger.cs" />
