@@ -22,7 +22,7 @@ namespace CSVEditor
     /// </summary>
     internal sealed partial class PackageIds
     {
-        public const int MyMenuGroup = 0x0001;
+        public const int CsvMenuGroup = 0x0001;
         public const int GoToColumnCommand = 0x0100;
     }
 }

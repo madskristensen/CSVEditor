@@ -88,6 +88,7 @@ internal sealed class CsvColumn0Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 1";
         ForegroundColor = Color.FromRgb(220, 50, 47);  // Red
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -102,6 +103,7 @@ internal sealed class CsvColumn1Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 2";
         ForegroundColor = Color.FromRgb(203, 75, 22);  // Orange
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -116,6 +118,7 @@ internal sealed class CsvColumn2Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 3";
         ForegroundColor = Color.FromRgb(181, 137, 0);  // Yellow
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -130,6 +133,7 @@ internal sealed class CsvColumn3Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 4";
         ForegroundColor = Color.FromRgb(133, 153, 0);  // Green
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -144,6 +148,7 @@ internal sealed class CsvColumn4Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 5";
         ForegroundColor = Color.FromRgb(42, 161, 152);  // Cyan
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -158,6 +163,7 @@ internal sealed class CsvColumn5Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 6";
         ForegroundColor = Color.FromRgb(38, 139, 210);  // Blue
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -172,6 +178,7 @@ internal sealed class CsvColumn6Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 7";
         ForegroundColor = Color.FromRgb(108, 113, 196);  // Violet
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -186,6 +193,7 @@ internal sealed class CsvColumn7Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 8";
         ForegroundColor = Color.FromRgb(211, 54, 130);  // Magenta
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -200,6 +208,7 @@ internal sealed class CsvColumn8Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 9";
         ForegroundColor = Color.FromRgb(0, 153, 153);  // Teal
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }
 
@@ -214,5 +223,6 @@ internal sealed class CsvColumn9Format : ClassificationFormatDefinition
     {
         DisplayName = "CSV Column 10";
         ForegroundColor = Color.FromRgb(150, 100, 50);  // Brown
+        FontTypeface = new System.Windows.Media.Typeface("Consolas");
     }
 }

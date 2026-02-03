@@ -8,20 +8,20 @@
 
   <Commands package="CSVEditor">
     <Groups>
-      <Group guid="CSVEditor" id="MyMenuGroup" priority="0x0600">
+      <Group guid="CSVEditor" id="CsvMenuGroup" priority="0x0600">
         <Parent guid="VSMainMenu" id="Edit"/>
       </Group>
     </Groups>
 
     <Buttons>
       <Button guid="CSVEditor" id="GoToColumnCommand" priority="0x0100" type="Button">
-        <Parent guid="CSVEditor" id="MyMenuGroup" />
+        <Parent guid="CSVEditor" id="CsvMenuGroup" />
         <Icon guid="ImageCatalogGuid" id="GoToNext" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>DefaultInvisible</CommandFlag>
         <Strings>
-          <ButtonText>Go to Column...</ButtonText>
+          <ButtonText>Go to CSV Column...</ButtonText>
           <LocCanonicalName>.CSVEditor.GoToColumnCommand</LocCanonicalName>
         </Strings>
       </Button>
@@ -34,7 +34,7 @@
 
   <Symbols>
     <GuidSymbol name="CSVEditor" value="{55b9ed45-59d1-40dc-8003-343d792221d7}">
-      <IDSymbol name="MyMenuGroup" value="0x0001" />
+      <IDSymbol name="CsvMenuGroup" value="0x0001" />
       <IDSymbol name="GoToColumnCommand" value="0x0100" />
     </GuidSymbol>
   </Symbols>

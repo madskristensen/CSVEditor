@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="Classification\CsvClassificationTypes.cs" />
     <Compile Include="Classification\CsvClassifier.cs" />
+    <Compile Include="Classification\CsvColumnAlignmentAdornment.cs" />
     <Compile Include="Classification\CsvErrorTagger.cs" />
     <Compile Include="Classification\CsvQuickInfoSource.cs" />
     <Compile Include="Classification\CsvStatusBarProvider.cs" />
@@ -93,6 +94,8 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
     <Reference Include="System" />
     <Reference Include="System.Design" />
     <Reference Include="System.ComponentModel.Composition" />
