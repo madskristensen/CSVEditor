@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel.Composition;
 using System.Linq;
 using System.Text;
@@ -11,10 +10,8 @@ using System.Windows.Media;
 using CSVEditor.Core;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Language.StandardClassification;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Adornments;
-using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
 
 namespace CSVEditor.Classification;
@@ -42,20 +39,10 @@ internal sealed class CsvQuickInfoSourceProvider : IAsyncQuickInfoSourceProvider
 /// <summary>
 /// Provides column header information on hover with sort actions.
 /// </summary>
-internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
+internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFactoryService textDocumentFactory) : IAsyncQuickInfoSource
 {
-    private readonly ITextBuffer _textBuffer;
-    private readonly ITextDocumentFactoryService _textDocumentFactory;
-    private char _detectedDelimiter = ',';
-    private bool _delimiterDetected;
-    private CsvRow _headerRow;
+    private readonly CsvBufferCache _cache = CsvBufferCache.GetOrCreate(textBuffer);
     private bool _disposed;
-
-    public CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFactoryService textDocumentFactory)
-    {
-        _textBuffer = textBuffer;
-        _textDocumentFactory = textDocumentFactory;
-    }
 
     public async Task<QuickInfoItem> GetQuickInfoItemAsync(
         IAsyncQuickInfoSession session,
@@ -64,28 +51,27 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
         if (_disposed)
             return null;
 
-        SnapshotPoint? triggerPoint = session.GetTriggerPoint(_textBuffer.CurrentSnapshot);
+        SnapshotPoint? triggerPoint = session.GetTriggerPoint(textBuffer.CurrentSnapshot);
         if (!triggerPoint.HasValue)
             return null;
 
-        ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
+        ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
         var position = triggerPoint.Value.Position;
 
-        if (!_delimiterDetected)
-        {
-            DetectDelimiterAndHeaders(snapshot);
-        }
-
-        // Parse current line using CsvParser
+        // Parse current line using shared cache
         ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
-        CsvRow row = CsvParser.ParseLine(line.GetText(), _detectedDelimiter, line.LineNumber, line.Start.Position);
+        CsvRow row = _cache.GetParsedLine(line);
 
         // Find the cell at the hover position
         CsvCell cell = row.GetCellAtPosition(position);
         if (cell == null)
             return null;
 
-        var columnName = GetColumnName(cell.ColumnIndex);
+        var hasHeader = _cache.HasHeader(snapshot);
+        var columnName = GetColumnName(snapshot, cell.ColumnIndex, hasHeader);
+        CsvDataType columnType = _cache.GetColumnType(snapshot, cell.ColumnIndex);
+        var totalColumns = _cache.GetExpectedColumnCount(snapshot);
+        var isHeaderRow = hasHeader && line.LineNumber == 0;
 
         // Create tracking span for the cell
         var cellSpan = new SnapshotSpan(snapshot, cell.Span.Start, cell.Span.Length);
@@ -93,82 +79,80 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
         // Build tooltip content (must be on UI thread for WPF elements)
         object content;
-        if (line.LineNumber == 0)
+        if (isHeaderRow)
         {
             // Header row - need WPF elements for clickable links, must be on UI thread
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            content = BuildHeaderTooltip(cell.ColumnIndex, columnName, _headerRow?.Count ?? 0, session);
+            content = BuildHeaderTooltip(cell.ColumnIndex, columnName, columnType, totalColumns, session);
         }
         else
         {
             // Data rows - use thread-safe ContainerElement
-            content = BuildDataRowTooltip(cell.ColumnIndex, columnName);
+            content = BuildDataRowTooltip(cell.ColumnIndex, columnName, columnType, totalColumns);
         }
 
         return new QuickInfoItem(trackingSpan, content);
     }
 
-    private void DetectDelimiterAndHeaders(ITextSnapshot snapshot)
+    private string GetColumnName(ITextSnapshot snapshot, int columnIndex, bool hasHeader)
     {
-        var length = Math.Min(snapshot.Length, 2000);
-        var text = snapshot.GetText(0, length);
-
-        CsvDelimiter delimiter = DelimiterDetector.Detect(text);
-        _detectedDelimiter = delimiter.ToChar();
-        _delimiterDetected = true;
-
-        // Parse header row using CsvParser
-        if (snapshot.LineCount > 0)
+        if (hasHeader)
         {
-            var firstLine = snapshot.GetLineFromLineNumber(0).GetText();
-            _headerRow = CsvParser.ParseLine(firstLine, _detectedDelimiter, 0);
-        }
-    }
-
-    private string GetColumnName(int columnIndex)
-    {
-        if (_headerRow != null && columnIndex >= 0 && columnIndex < _headerRow.Count)
-        {
-            var name = _headerRow[columnIndex].Value;
-            if (!string.IsNullOrWhiteSpace(name))
-                return name;
+            CsvRow headerRow = _cache.GetParsedLine(snapshot, 0);
+            if (headerRow != null && columnIndex >= 0 && columnIndex < headerRow.Count)
+            {
+                var name = headerRow[columnIndex].Value;
+                if (!string.IsNullOrWhiteSpace(name))
+                    return name;
+            }
         }
         return $"Column {columnIndex + 1}";
     }
 
-    private object BuildDataRowTooltip(int columnIndex, string columnName)
+    private object BuildDataRowTooltip(int columnIndex, string columnName, CsvDataType columnType, int totalColumns)
     {
-        var totalColumns = _headerRow?.Count ?? 0;
+        var typeName = CsvColumnTypeDetector.GetTypeName(columnType);
 
         return new ContainerElement(
             ContainerElementStyle.Stacked,
             new ClassifiedTextElement(
                 new ClassifiedTextRun(PredefinedClassificationTypeNames.Keyword, "Column: "),
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Identifier, columnName)
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Identifier, columnName),
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Comment, $" ({typeName})")
             ),
             new ClassifiedTextElement(
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Comment, $"(Index: {columnIndex + 1} of {totalColumns})")
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Comment, $"Index: {columnIndex + 1} of {totalColumns}")
             )
         );
     }
 
-    private object BuildHeaderTooltip(int columnIndex, string columnName, int totalColumns, IAsyncQuickInfoSession session)
+    private object BuildHeaderTooltip(int columnIndex, string columnName, CsvDataType columnType, int totalColumns, IAsyncQuickInfoSession session)
     {
         // This method must be called on the UI thread
         var panel = new StackPanel { Orientation = Orientation.Vertical };
+        var typeName = CsvColumnTypeDetector.GetTypeName(columnType);
 
-        // Header info
+        // Header info with type
         var headerInfo = new TextBlock
         {
-            Margin = new Thickness(0, 0, 0, 6)
+            Margin = new Thickness(0, 0, 0, 4)
         };
-        headerInfo.Inlines.Add(new Run("Header Column ") { Foreground = Brushes.Gray });
+        headerInfo.Inlines.Add(new Run("Column ") { Foreground = Brushes.Gray });
         headerInfo.Inlines.Add(new Run($"#{columnIndex + 1}") { Foreground = Brushes.DodgerBlue, FontWeight = FontWeights.SemiBold });
         if (totalColumns > 0)
         {
             headerInfo.Inlines.Add(new Run($" of {totalColumns}") { Foreground = Brushes.Gray });
         }
         panel.Children.Add(headerInfo);
+
+        // Type info
+        var typeInfo = new TextBlock
+        {
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        typeInfo.Inlines.Add(new Run("Type: ") { Foreground = Brushes.Gray });
+        typeInfo.Inlines.Add(new Run(typeName) { Foreground = Brushes.MediumSeaGreen, FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(typeInfo);
 
         // Sort links
         var sortPanel = new StackPanel { Orientation = Orientation.Horizontal };
@@ -207,15 +191,19 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
     private void SortByColumn(int columnIndex, bool ascending)
     {
-        ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
+        ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
 
         if (snapshot.LineCount < 2)
             return;
 
-        // Parse all data rows (skip header)
+        var delimiter = _cache.GetDelimiter(snapshot);
+        var hasHeader = _cache.HasHeader(snapshot);
+        var firstDataRow = hasHeader ? 1 : 0;
+
+        // Parse all data rows (skip header if present)
         var dataRows = new System.Collections.Generic.List<(int lineNumber, string lineText, string sortValue)>();
 
-        for (var i = 1; i < snapshot.LineCount; i++)
+        for (var i = firstDataRow; i < snapshot.LineCount; i++)
         {
             ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
             var lineText = line.GetText();
@@ -224,7 +212,7 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
             if (string.IsNullOrWhiteSpace(lineText))
                 continue;
 
-            CsvRow row = CsvParser.ParseLine(lineText, _detectedDelimiter, i);
+            CsvRow row = CsvParser.ParseLine(lineText, delimiter, i);
             var sortValue = columnIndex < row.Count ? row[columnIndex].Value : "";
 
             dataRows.Add((i, lineText, sortValue));
@@ -252,8 +240,13 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
 
         // Build the new document content
         var sb = new StringBuilder();
-        ITextSnapshotLine headerLine = snapshot.GetLineFromLineNumber(0);
-        sb.AppendLine(headerLine.GetText()); // Keep header first
+
+        // Keep header first if present
+        if (hasHeader)
+        {
+            ITextSnapshotLine headerLine = snapshot.GetLineFromLineNumber(0);
+            sb.AppendLine(headerLine.GetText());
+        }
 
         foreach ((int lineNumber, string lineText, string sortValue) row in sortedRows)
         {
@@ -271,7 +264,7 @@ internal sealed class CsvQuickInfoSource : IAsyncQuickInfoSource
         // Replace document content
         var newText = sb.ToString();
 
-        using (ITextEdit edit = _textBuffer.CreateEdit())
+        using (ITextEdit edit = textBuffer.CreateEdit())
         {
             edit.Replace(new Microsoft.VisualStudio.Text.Span(0, snapshot.Length), newText);
             edit.Apply();

@@ -57,8 +57,11 @@
     <Compile Include="Commands\AlignColumnsCommand.cs" />
     <Compile Include="Commands\GoToColumnCommand.cs" />
     <Compile Include="Core\CsvCell.cs" />
+    <Compile Include="Core\CsvColumnTypeDetector.cs" />
+    <Compile Include="Core\CsvDataType.cs" />
     <Compile Include="Core\CsvDelimiter.cs" />
     <Compile Include="Core\CsvDocument.cs" />
+    <Compile Include="Core\CsvHeaderDetector.cs" />
     <Compile Include="Core\CsvParser.cs" />
     <Compile Include="Core\CsvRow.cs" />
     <Compile Include="Core\DelimiterDetector.cs" />

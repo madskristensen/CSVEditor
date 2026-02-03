@@ -11,6 +11,7 @@ namespace CSVEditor.Classification;
 internal sealed class CsvBufferCache
 {
     private static readonly object _cacheKey = new object();
+    private const int MaxLinesToSampleForTypes = 100;
 
     private readonly ITextBuffer _buffer;
     private char _detectedDelimiter = ',';
@@ -21,6 +22,15 @@ internal sealed class CsvBufferCache
     private readonly Dictionary<int, (int Version, CsvRow Row)> _lineCache = [];
     private int _expectedColumnCount = -1;
     private int _expectedColumnCountVersion = -1;
+
+    // Column type cache
+    private CsvDataType[] _columnTypes;
+    private int _columnTypesVersion = -1;
+
+    // Header detection cache
+    private bool _hasHeader;
+    private bool _hasHeaderDetected;
+    private int _hasHeaderVersion = -1;
 
     private CsvBufferCache(ITextBuffer buffer)
     {
@@ -114,6 +124,113 @@ internal sealed class CsvBufferCache
     }
 
     /// <summary>
+    /// Gets the detected data type for a specific column.
+    /// </summary>
+    public CsvDataType GetColumnType(ITextSnapshot snapshot, int columnIndex)
+    {
+        EnsureColumnTypesCalculated(snapshot);
+
+        if (_columnTypes == null || columnIndex < 0 || columnIndex >= _columnTypes.Length)
+            return CsvDataType.Unknown;
+
+        return _columnTypes[columnIndex];
+    }
+
+    /// <summary>
+    /// Gets all detected column types.
+    /// </summary>
+    public CsvDataType[] GetColumnTypes(ITextSnapshot snapshot)
+    {
+        EnsureColumnTypesCalculated(snapshot);
+        return _columnTypes ?? [];
+    }
+
+    private void EnsureColumnTypesCalculated(ITextSnapshot snapshot)
+    {
+        var version = snapshot.Version.VersionNumber;
+        if (_columnTypesVersion == version && _columnTypes != null)
+            return;
+
+        var columnCount = GetExpectedColumnCount(snapshot);
+        if (columnCount <= 0)
+        {
+            _columnTypes = [];
+            _columnTypesVersion = version;
+            return;
+        }
+
+        // Collect sample values for each column (skip header row)
+        var columnValues = new List<string>[columnCount];
+        for (var i = 0; i < columnCount; i++)
+        {
+            columnValues[i] = new List<string>(MaxLinesToSampleForTypes);
+        }
+
+        var linesToSample = Math.Min(snapshot.LineCount, MaxLinesToSampleForTypes + 1);
+        for (var lineNum = 1; lineNum < linesToSample; lineNum++) // Start at 1 to skip header
+        {
+            CsvRow row = GetParsedLine(snapshot, lineNum);
+            for (var col = 0; col < row.Count && col < columnCount; col++)
+            {
+                columnValues[col].Add(row[col].Value);
+            }
+        }
+
+        // Detect type for each column
+        _columnTypes = new CsvDataType[columnCount];
+        for (var i = 0; i < columnCount; i++)
+        {
+            _columnTypes[i] = CsvColumnTypeDetector.DetectType(columnValues[i]);
+        }
+
+        _columnTypesVersion = version;
+    }
+
+    /// <summary>
+    /// Determines if the CSV file has a header row.
+    /// </summary>
+    public bool HasHeader(ITextSnapshot snapshot)
+    {
+        var version = snapshot.Version.VersionNumber;
+        if (_hasHeaderDetected && _hasHeaderVersion == version)
+        {
+            return _hasHeader;
+        }
+
+        // Need at least 2 rows to determine
+        if (snapshot.LineCount < 2)
+        {
+            _hasHeader = false;
+            _hasHeaderDetected = true;
+            _hasHeaderVersion = version;
+            return false;
+        }
+
+        // Collect sample rows for analysis
+        var sampleCount = Math.Min(snapshot.LineCount, MaxLinesToSampleForTypes + 1);
+        var rows = new List<CsvRow>(sampleCount);
+        for (var i = 0; i < sampleCount; i++)
+        {
+            CsvRow row = GetParsedLine(snapshot, i);
+            if (row.Count > 0)
+                rows.Add(row);
+        }
+
+        _hasHeader = CsvHeaderDetector.HasHeader(rows);
+        _hasHeaderDetected = true;
+        _hasHeaderVersion = version;
+        return _hasHeader;
+    }
+
+    /// <summary>
+    /// Gets the first data row index (0 if no header, 1 if has header).
+    /// </summary>
+    public int GetFirstDataRowIndex(ITextSnapshot snapshot)
+    {
+        return HasHeader(snapshot) ? 1 : 0;
+    }
+
+    /// <summary>
     /// Invalidates cache entries for specific lines.
     /// </summary>
     public void InvalidateLines(int startLine, int endLine)
@@ -131,6 +248,8 @@ internal sealed class CsvBufferCache
     {
         _delimiterDetected = false;
         _expectedColumnCount = -1;
+        _columnTypes = null;
+        _hasHeaderDetected = false;
     }
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -140,6 +259,10 @@ internal sealed class CsvBufferCache
         {
             InvalidateDelimiter();
         }
+
+        // Invalidate column types and header detection (data may have changed)
+        _columnTypes = null;
+        _hasHeaderDetected = false;
 
         // Invalidate affected lines and all lines after (line numbers may have shifted)
         if (e.Changes.Count > 0)
