@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.VisualStudio.PlatformUI;
-using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
@@ -82,8 +81,8 @@ internal sealed class CsvAlternateRowAdornment
     {
         // Use the ToolWindowText color with low opacity - it's designed to contrast with
         // backgrounds in both light and dark themes, making it ideal for alternating rows
-        var themeColor = VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowTextColorKey);
-        Color wpfColor = Color.FromArgb(20, themeColor.R, themeColor.G, themeColor.B);
+        System.Drawing.Color themeColor = VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowTextColorKey);
+        var wpfColor = Color.FromArgb(20, themeColor.R, themeColor.G, themeColor.B);
         _rowBackgroundBrush = new SolidColorBrush(wpfColor);
         _rowBackgroundBrush.Freeze();
     }
