@@ -5,6 +5,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="test/CSVEditor.Test/CSVEditor.Test.csproj" />
+  <Project Path="test/CSVEditor.Benchmarks/CSVEditor.Benchmarks.csproj" />
   <Project Path="src/CSVEditor.csproj" Id="90b10482-68aa-4308-b623-c879d4589ff2">
     <Platform Solution="*|arm64" Project="arm64" />
     <Platform Solution="*|x86" Project="x86" />

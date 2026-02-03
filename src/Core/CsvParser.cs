@@ -62,7 +62,9 @@ public sealed class CsvParser
         if (string.IsNullOrEmpty(line))
             return new CsvRow(Array.Empty<CsvCell>(), new TextSpan(lineStartOffset, 0), lineNumber);
 
-        var cells = new List<CsvCell>();
+        // Estimate column count by counting delimiters (optimization: pre-size list)
+        var estimatedColumns = CountDelimiters(line, delimiter) + 1;
+        var cells = new List<CsvCell>(estimatedColumns);
         var position = 0;
         var columnIndex = 0;
 
@@ -78,6 +80,32 @@ public sealed class CsvParser
 
         var rowSpan = new TextSpan(lineStartOffset, line.Length);
         return new CsvRow(cells, rowSpan, lineNumber);
+    }
+
+    private static int CountDelimiters(string line, char delimiter)
+    {
+        var count = 0;
+        var inQuotes = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    i++; // Skip escaped quote
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (c == delimiter && !inQuotes)
+            {
+                count++;
+            }
+        }
+        return count;
     }
 
     private CsvDocument ParseDocument()
@@ -243,8 +271,10 @@ public sealed class CsvParser
     private static CsvCell ParseQuotedCellStatic(string line, char delimiter, ref int position, int columnIndex, int lineStartOffset, int cellStart)
     {
         position++; // Skip opening quote
-        var valueBuilder = new StringBuilder();
+        var valueStart = position;
+        var hasEscapedQuotes = false;
 
+        // First pass: find the closing quote and check for escaped quotes
         while (position < line.Length)
         {
             var c = line[position];
@@ -253,20 +283,53 @@ public sealed class CsvParser
             {
                 if (position + 1 < line.Length && line[position + 1] == '"')
                 {
-                    valueBuilder.Append('"');
+                    hasEscapedQuotes = true;
                     position += 2;
                 }
                 else
                 {
-                    position++;
+                    // Found closing quote
                     break;
                 }
             }
             else
             {
-                valueBuilder.Append(c);
                 position++;
             }
+        }
+
+        // Extract value
+        string value;
+        var valueEnd = position;
+        if (hasEscapedQuotes)
+        {
+            // Need to process escaped quotes - use StringBuilder only when necessary
+            var valueBuilder = new StringBuilder(valueEnd - valueStart);
+            for (var i = valueStart; i < valueEnd; i++)
+            {
+                var c = line[i];
+                if (c == '"' && i + 1 < valueEnd && line[i + 1] == '"')
+                {
+                    valueBuilder.Append('"');
+                    i++; // Skip the second quote
+                }
+                else
+                {
+                    valueBuilder.Append(c);
+                }
+            }
+            value = valueBuilder.ToString();
+        }
+        else
+        {
+            // No escaped quotes - use fast Substring
+            value = line.Substring(valueStart, valueEnd - valueStart);
+        }
+
+        // Skip closing quote
+        if (position < line.Length && line[position] == '"')
+        {
+            position++;
         }
 
         // Skip any characters until delimiter (handles trailing content after closing quote)
@@ -275,43 +338,44 @@ public sealed class CsvParser
             position++;
         }
 
-        // Skip delimiter
+        // Calculate span (excluding delimiter)
+        var spanEnd = position;
+
+        // Skip delimiter if present
         if (position < line.Length && line[position] == delimiter)
         {
             position++;
         }
 
-        var span = new TextSpan(lineStartOffset + cellStart, position - cellStart - (position <= line.Length && position > cellStart ? 1 : 0));
-        return new CsvCell(valueBuilder.ToString(), span, columnIndex, isQuoted: true);
+        var span = new TextSpan(lineStartOffset + cellStart, spanEnd - cellStart);
+        return new CsvCell(value, span, columnIndex, isQuoted: true);
     }
 
     private static CsvCell ParseUnquotedCellStatic(string line, char delimiter, ref int position, int columnIndex, int lineStartOffset, int cellStart)
     {
-        var valueBuilder = new StringBuilder();
-
-        while (position < line.Length)
+        // Find the end of the cell (delimiter or end of line)
+        var valueEnd = position;
+        while (valueEnd < line.Length && line[valueEnd] != delimiter)
         {
-            var c = line[position];
+            valueEnd++;
+        }
 
-            if (c == delimiter)
-            {
-                position++; // Skip delimiter
-                break;
-            }
+        // Extract value using Substring (faster than StringBuilder for simple cases)
+        var value = line.Substring(position, valueEnd - position);
 
-            valueBuilder.Append(c);
+        // Calculate span (excluding delimiter)
+        var spanLength = valueEnd - cellStart;
+
+        // Move position past the value
+        position = valueEnd;
+
+        // Skip delimiter if present
+        if (position < line.Length && line[position] == delimiter)
+        {
             position++;
         }
 
-        var spanLength = position - cellStart;
-        if (position <= line.Length && position > cellStart && position > 0 && 
-            cellStart + spanLength <= line.Length && 
-            position - 1 < line.Length && line[position - 1] == delimiter)
-        {
-            spanLength--; // Don't include delimiter in span
-        }
-
-        var span = new TextSpan(lineStartOffset + cellStart, Math.Max(0, spanLength));
-        return new CsvCell(valueBuilder.ToString(), span, columnIndex);
+        var span = new TextSpan(lineStartOffset + cellStart, spanLength);
+        return new CsvCell(value, span, columnIndex);
     }
 }
