@@ -10,6 +10,7 @@ using CSVEditor.Classification;
 using CSVEditor.Core;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Language.StandardClassification;
+using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Adornments;
 
@@ -92,15 +93,17 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
     {
         var typeName = CsvColumnTypeDetector.GetTypeName(columnType);
 
+        // Build column info text to match header tooltip style
+        var columnText = $"Column {columnName} (#{columnIndex + 1} of {totalColumns})";
+
         return new ContainerElement(
             ContainerElementStyle.Stacked,
             new ClassifiedTextElement(
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Keyword, "Column: "),
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Identifier, columnName),
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Comment, $" ({typeName})")
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, columnText)
             ),
             new ClassifiedTextElement(
-                new ClassifiedTextRun(PredefinedClassificationTypeNames.Comment, $"Index: {columnIndex + 1} of {totalColumns}")
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Type: "),
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Keyword, typeName)
             )
         );
     }
@@ -108,47 +111,20 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
     private object BuildFirstRowTooltip(int columnIndex, string columnName, CsvDataType columnType, int totalColumns, bool hasHeader, IAsyncQuickInfoSession session)
     {
         // This method must be called on the UI thread
-        var panel = new StackPanel { Orientation = Orientation.Vertical };
         var typeName = CsvColumnTypeDetector.GetTypeName(columnType);
 
-        // Column info
-        var headerInfo = new TextBlock
-        {
-            Margin = new Thickness(0, 0, 0, 4)
-        };
-        headerInfo.Inlines.Add(new Run("Column ") { Foreground = Brushes.Gray });
-        if (hasHeader)
-        {
-            headerInfo.Inlines.Add(new Run(columnName) { Foreground = Brushes.DodgerBlue, FontWeight = FontWeights.SemiBold });
-            headerInfo.Inlines.Add(new Run($" (#{columnIndex + 1}") { Foreground = Brushes.Gray });
-        }
-        else
-        {
-            headerInfo.Inlines.Add(new Run($"#{columnIndex + 1}") { Foreground = Brushes.DodgerBlue, FontWeight = FontWeights.SemiBold });
-        }
-        if (totalColumns > 0)
-        {
-            headerInfo.Inlines.Add(new Run(hasHeader ? $" of {totalColumns})" : $" of {totalColumns}") { Foreground = Brushes.Gray });
-        }
-        else if (hasHeader)
-        {
-            headerInfo.Inlines.Add(new Run(")") { Foreground = Brushes.Gray });
-        }
-        panel.Children.Add(headerInfo);
+        // Build column info text
+        var columnText = hasHeader
+            ? $"Column {columnName} (#{columnIndex + 1} of {totalColumns})"
+            : $"Column #{columnIndex + 1} of {totalColumns}";
 
-        // Type info
-        var typeInfo = new TextBlock
-        {
-            Margin = new Thickness(0, 0, 0, 6)
-        };
-        typeInfo.Inlines.Add(new Run("Type: ") { Foreground = Brushes.Gray });
-        typeInfo.Inlines.Add(new Run(typeName) { Foreground = Brushes.MediumSeaGreen, FontWeight = FontWeights.SemiBold });
-        panel.Children.Add(typeInfo);
+        // Get theme-aware link color for hyperlinks
+        Brush linkColor = GetThemedLinkBrush();
 
-        // Sort links
+        // Sort links panel - only this needs WPF elements for click handling
         var sortPanel = new StackPanel { Orientation = Orientation.Horizontal };
 
-        var sortAscLink = new Hyperlink(new Run("Sort A→Z"));
+        var sortAscLink = new Hyperlink(new Run("Sort A→Z")) { Foreground = linkColor };
         sortAscLink.Click += (s, e) =>
         {
             session.DismissAsync().ConfigureAwait(false);
@@ -159,7 +135,7 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
             });
         };
 
-        var sortDescLink = new Hyperlink(new Run("Sort Z→A"));
+        var sortDescLink = new Hyperlink(new Run("Sort Z→A")) { Foreground = linkColor };
         sortDescLink.Click += (s, e) =>
         {
             session.DismissAsync().ConfigureAwait(false);
@@ -170,14 +146,30 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
             });
         };
 
-        var ascText = new TextBlock(sortAscLink) { Margin = new Thickness(0, 0, 12, 0) };
-        var descText = new TextBlock(sortDescLink);
+        sortPanel.Children.Add(new TextBlock(sortAscLink) { Margin = new Thickness(0, 0, 12, 0) });
+        sortPanel.Children.Add(new TextBlock(sortDescLink));
 
-        sortPanel.Children.Add(ascText);
-        sortPanel.Children.Add(descText);
-        panel.Children.Add(sortPanel);
+        // Use ClassifiedTextElement for text (theme-aware) and WPF only for clickable links
+        return new ContainerElement(
+            ContainerElementStyle.Stacked,
+            new ClassifiedTextElement(
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, columnText)
+            ),
+            new ClassifiedTextElement(
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "Type: "),
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Keyword, typeName)
+            ),
+            new ClassifiedTextElement(
+                new ClassifiedTextRun(PredefinedClassificationTypeNames.Text, "")
+            ),
+            sortPanel
+        );
+    }
 
-        return panel;
+    private static Brush GetThemedLinkBrush()
+    {
+        System.Drawing.Color color = VSColorTheme.GetThemedColor(EnvironmentColors.ControlLinkTextColorKey);
+        return new SolidColorBrush(Color.FromRgb(color.R, color.G, color.B));
     }
 
     private void SortByColumn(int columnIndex, bool ascending)
