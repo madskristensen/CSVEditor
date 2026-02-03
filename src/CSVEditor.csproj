@@ -48,9 +48,10 @@
     <Compile Include="Classification\CsvBufferCache.cs" />
     <Compile Include="Classification\CsvClassificationTypes.cs" />
     <Compile Include="Classification\CsvClassifier.cs" />
-    <Compile Include="Classification\CsvColumnAlignmentAdornment.cs" />
+    <Compile Include="Adornments\CsvColumnAlignmentTagger.cs" />
+    <Compile Include="Adornments\CsvColumnAlignmentTaggerProvider.cs" />
     <Compile Include="Classification\CsvErrorTagger.cs" />
-    <Compile Include="Classification\CsvQuickInfoSource.cs" />
+    <Compile Include="QuickInfo\CsvQuickInfoSource.cs" />
     <Compile Include="Classification\CsvStatusBarProvider.cs" />
     <Compile Include="Classification\CsvTagger.cs" />
     <Compile Include="Classification\CsvContentTypeDefinition.cs" />
@@ -69,6 +70,7 @@
     <Compile Include="Core\TextSpan.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CSVEditorPackage.cs" />
+    <Compile Include="QuickInfo\CsvQuickInfoSourceProvider.cs" />
     <Compile Include="source.extension.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

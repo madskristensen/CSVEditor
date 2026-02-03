@@ -1,4 +1,3 @@
-using System.ComponentModel.Composition;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -7,39 +6,19 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using CSVEditor.Classification;
 using CSVEditor.Core;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Adornments;
-using Microsoft.VisualStudio.Utilities;
 
-namespace CSVEditor.Classification;
-
-/// <summary>
-/// Provides QuickInfo (hover tooltips) for CSV columns.
-/// </summary>
-[Export(typeof(IAsyncQuickInfoSourceProvider))]
-[Name("CSV QuickInfo Provider")]
-[ContentType(CsvContentTypeDefinition.CsvContentTypeName)]
-[ContentType(CsvContentTypeDefinition.TsvContentTypeName)]
-[Order(Before = "Default Quick Info Presenter")]
-internal sealed class CsvQuickInfoSourceProvider : IAsyncQuickInfoSourceProvider
-{
-    [Import]
-    internal ITextDocumentFactoryService TextDocumentFactory = null;
-
-    public IAsyncQuickInfoSource TryCreateQuickInfoSource(ITextBuffer textBuffer)
-    {
-        return textBuffer.Properties.GetOrCreateSingletonProperty(
-            () => new CsvQuickInfoSource(textBuffer, TextDocumentFactory));
-    }
-}
+namespace CSVEditor.QuickInfo;
 
 /// <summary>
 /// Provides column header information on hover with sort actions.
 /// </summary>
-internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFactoryService textDocumentFactory) : IAsyncQuickInfoSource
+internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickInfoSource
 {
     private readonly CsvBufferCache _cache = CsvBufferCache.GetOrCreate(textBuffer);
     private bool _disposed;
@@ -260,9 +239,9 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer, ITextDocumentFa
             sb.AppendLine(headerLine.GetText());
         }
 
-        foreach ((int lineNumber, string lineText, string sortValue) row in sortedRows)
+        foreach ((var lineNumber, var lineText, var sortValue) in sortedRows)
         {
-            sb.AppendLine(row.lineText);
+            sb.AppendLine(lineText);
         }
 
         // Remove trailing newline
