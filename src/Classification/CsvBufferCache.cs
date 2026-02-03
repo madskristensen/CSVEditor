@@ -11,7 +11,7 @@ namespace CSVEditor.Classification;
 internal sealed class CsvBufferCache
 {
     private static readonly object _cacheKey = new();
-    private const int MaxLinesToSampleForTypes = 100;
+    private const int _maxLinesToSampleForTypes = 100;
 
     private readonly ITextBuffer _buffer;
     private char _detectedDelimiter = ',';
@@ -163,10 +163,10 @@ internal sealed class CsvBufferCache
         var columnValues = new List<string>[columnCount];
         for (var i = 0; i < columnCount; i++)
         {
-            columnValues[i] = new List<string>(MaxLinesToSampleForTypes);
+            columnValues[i] = new List<string>(_maxLinesToSampleForTypes);
         }
 
-        var linesToSample = Math.Min(snapshot.LineCount, MaxLinesToSampleForTypes + 1);
+        var linesToSample = Math.Min(snapshot.LineCount, _maxLinesToSampleForTypes + 1);
         for (var lineNum = 1; lineNum < linesToSample; lineNum++) // Start at 1 to skip header
         {
             CsvRow row = GetParsedLine(snapshot, lineNum);
@@ -207,7 +207,7 @@ internal sealed class CsvBufferCache
         }
 
         // Collect sample rows for analysis
-        var sampleCount = Math.Min(snapshot.LineCount, MaxLinesToSampleForTypes + 1);
+        var sampleCount = Math.Min(snapshot.LineCount, _maxLinesToSampleForTypes + 1);
         var rows = new List<CsvRow>(sampleCount);
         for (var i = 0; i < sampleCount; i++)
         {
@@ -260,27 +260,63 @@ internal sealed class CsvBufferCache
             InvalidateDelimiter();
         }
 
-        // Invalidate column types and header detection (data may have changed)
-        _columnTypes = null;
-        _hasHeaderDetected = false;
+        // Don't invalidate column types on every keystroke - they're based on sampling
+        // and unlikely to change significantly from a single edit
+        // _columnTypes = null;  // REMOVED: Too expensive to recalculate on every keystroke
+        // _hasHeaderDetected = false;  // REMOVED: Header row rarely changes
 
-        // Invalidate affected lines and all lines after (line numbers may have shifted)
+        // For large files, use a smarter invalidation strategy:
+        // Only clear the cache for directly affected lines, not all subsequent lines.
+        // Line number shifts are handled by version checking in GetParsedLine.
         if (e.Changes.Count > 0)
         {
-            var firstAffectedLine = e.After.GetLineFromPosition(e.Changes[0].NewPosition).LineNumber;
-
-            // Remove all cached lines from the first affected line onwards
-            var keysToRemove = new List<int>();
-            foreach (var key in _lineCache.Keys)
+            // Only invalidate if this is a line-count-changing edit (has newlines)
+            var hasLineCountChange = false;
+            foreach (ITextChange change in e.Changes)
             {
-                if (key >= firstAffectedLine)
+                if (change.OldText.IndexOf('\n') >= 0 || change.NewText.IndexOf('\n') >= 0 ||
+                    change.OldText.IndexOf('\r') >= 0 || change.NewText.IndexOf('\r') >= 0)
                 {
-                    keysToRemove.Add(key);
+                    hasLineCountChange = true;
+                    break;
                 }
             }
-            foreach (var key in keysToRemove)
+
+            if (hasLineCountChange)
             {
-                _lineCache.Remove(key);
+                // Line numbers shifted - clear entire cache (unavoidable)
+                // But limit cache size to prevent memory bloat
+                if (_lineCache.Count > LargeFileThresholds.MaxCachedLines)
+                {
+                    _lineCache.Clear();
+                }
+                else
+                {
+                    // For moderate-sized caches, just clear lines after the change
+                    var firstAffectedLine = e.After.GetLineFromPosition(e.Changes[0].NewPosition).LineNumber;
+                    var keysToRemove = new List<int>();
+                    foreach (var key in _lineCache.Keys)
+                    {
+                        if (key >= firstAffectedLine)
+                        {
+                            keysToRemove.Add(key);
+                        }
+                    }
+                    foreach (var key in keysToRemove)
+                    {
+                        _lineCache.Remove(key);
+                    }
+                }
+
+                // Only recalculate header/types when structure changes
+                _hasHeaderDetected = false;
+                _columnTypes = null;
+            }
+            else
+            {
+                // Single-line edit: only invalidate that specific line
+                var affectedLine = e.After.GetLineFromPosition(e.Changes[0].NewPosition).LineNumber;
+                _lineCache.Remove(affectedLine);
             }
         }
     }

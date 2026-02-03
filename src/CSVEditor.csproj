@@ -54,6 +54,7 @@
     <Compile Include="Classification\CsvErrorTagger.cs" />
     <Compile Include="Commands\ShrinkColumnsCommand.cs" />
     <Compile Include="Commands\ToggleAlternateRowsCommand.cs" />
+    <Compile Include="Core\LargeFileThresholds.cs" />
     <Compile Include="QuickInfo\CsvQuickInfoSource.cs" />
     <Compile Include="Classification\CsvStatusBarProvider.cs" />
     <Compile Include="Classification\CsvTagger.cs" />

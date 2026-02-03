@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Media;
 using CSVEditor.Classification;
@@ -157,28 +155,53 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         var lineCount = snapshot.LineCount;
         var delimiter = _cache.GetDelimiter(snapshot);
 
-        // Process all lines, but check cancellation periodically
-        for (var i = 0; i < lineCount; i++)
+        // For very large files, use sampling instead of full scan
+        // This provides a good approximation while keeping typing responsive
+        var sampleSize = LargeFileThresholds.ColumnWidthSampleSize;
+        const int CheckCancellationInterval = 100;
+
+        if (lineCount > LargeFileThresholds.LargeFileLineCount)
         {
-            if (token.IsCancellationRequested)
-                throw new OperationCanceledException();
-
-            ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
-            CsvRow row = CsvParser.ParseLine(line.GetText(), delimiter, i);
-
-            // Ensure we have enough slots
-            while (columnMaxWidths.Count < row.Count)
+            // Sample evenly distributed lines throughout the file
+            var step = Math.Max(1, lineCount / sampleSize);
+            for (var i = 0; i < lineCount; i += step)
             {
-                columnMaxWidths.Add(0);
-            }
+                if (i % CheckCancellationInterval == 0 && token.IsCancellationRequested)
+                    throw new OperationCanceledException();
 
-            // Update max widths
-            for (var col = 0; col < row.Count; col++)
-            {
-                var cellWidth = row[col].Span.Length;
-                if (cellWidth > columnMaxWidths[col])
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
+                CsvRow row = CsvParser.ParseLine(line.GetText(), delimiter, i);
+
+                while (columnMaxWidths.Count < row.Count)
+                    columnMaxWidths.Add(0);
+
+                for (var col = 0; col < row.Count; col++)
                 {
-                    columnMaxWidths[col] = cellWidth;
+                    var cellWidth = row[col].Span.Length;
+                    if (cellWidth > columnMaxWidths[col])
+                        columnMaxWidths[col] = cellWidth;
+                }
+            }
+        }
+        else
+        {
+            // For smaller files, scan all lines
+            for (var i = 0; i < lineCount; i++)
+            {
+                if (i % CheckCancellationInterval == 0 && token.IsCancellationRequested)
+                    throw new OperationCanceledException();
+
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(i);
+                CsvRow row = CsvParser.ParseLine(line.GetText(), delimiter, i);
+
+                while (columnMaxWidths.Count < row.Count)
+                    columnMaxWidths.Add(0);
+
+                for (var col = 0; col < row.Count; col++)
+                {
+                    var cellWidth = row[col].Span.Length;
+                    if (cellWidth > columnMaxWidths[col])
+                        columnMaxWidths[col] = cellWidth;
                 }
             }
         }
@@ -243,7 +266,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
             for (var lineNum = startLine.LineNumber; lineNum <= endLine.LineNumber; lineNum++)
             {
                 ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNum);
-                foreach (ITagSpan<IntraTextAdornmentTag> tag in GetTagsForLine(line, charWidth))
+                foreach (ITagSpan<IntraTextAdornmentTag> tag in GetTagsForLine(line))
                 {
                     yield return tag;
                 }
@@ -274,7 +297,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         return _textView.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize * 0.6 ?? 8.0;
     }
 
-    private IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTagsForLine(ITextSnapshotLine line, double charWidth)
+    private IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTagsForLine(ITextSnapshotLine line)
     {
         var lineText = line.GetText();
         if (string.IsNullOrEmpty(lineText))

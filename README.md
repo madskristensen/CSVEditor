@@ -27,6 +27,7 @@ or get the [CI build][vsixgallery].
 - **Column Sorting** — Sort ascending or descending directly from the tooltip
 - **Error Detection** — Rows with inconsistent column counts are highlighted
 - **Go To Column** — Jump to any column by number
+- **Large File Support** — Optimized for files with 100K+ lines
 
 **Supports:** CSV (comma-separated) and TSV (tab-separated) files
 
@@ -91,6 +92,17 @@ Rows with too many or too few columns are flagged with squiggles, helping you ca
 ### Go To Column
 
 Use **Edit > Go To > Go To Column** (or the command palette) to jump directly to a specific column by number.
+
+### Large File Support
+
+CSV Editor is optimized for large files with thousands of rows:
+
+- **Smart caching** — Parsed lines are cached to avoid redundant work
+- **Background validation** — Error detection runs in the background for files over 50K lines
+- **Sampled column widths** — Alignment uses sampling for files over 50K lines, keeping the editor responsive
+- **Virtualized rendering** — Only visible rows are processed, regardless of file size
+
+Files over 100K lines will prompt for confirmation before enabling column alignment.
 
 ## How can I help?
 

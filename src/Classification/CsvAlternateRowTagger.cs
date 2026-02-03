@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
@@ -32,6 +34,7 @@ internal sealed class CsvAlternateRowAdornmentFactory : IWpfTextViewCreationList
 
 /// <summary>
 /// Draws alternating row background colors across the full editor width.
+/// Uses object pooling to minimize GC pressure during scrolling/typing.
 /// </summary>
 internal sealed class CsvAlternateRowAdornment
 {
@@ -40,6 +43,10 @@ internal sealed class CsvAlternateRowAdornment
     private readonly IWpfTextView _textView;
     private readonly IAdornmentLayer _layer;
     private bool _isEnabled;
+
+    // Object pool to reuse Rectangle instances
+    private readonly Stack<Rectangle> _rectanglePool = new();
+    private readonly List<Rectangle> _activeRectangles = [];
 
     // Light gray with opacity - works well in both light and dark themes
     private static readonly Brush _rowBackgroundBrush = new SolidColorBrush(Color.FromArgb(30, 128, 128, 128));
@@ -76,6 +83,10 @@ internal sealed class CsvAlternateRowAdornment
         _textView.ViewportWidthChanged -= OnViewportChanged;
         _textView.ViewportLeftChanged -= OnViewportChanged;
         _textView.Closed -= OnClosed;
+
+        // Clear pools
+        _rectanglePool.Clear();
+        _activeRectangles.Clear();
     }
 
     private void OnStateChanged(bool enabled)
@@ -88,7 +99,7 @@ internal sealed class CsvAlternateRowAdornment
         }
         else
         {
-            _layer.RemoveAllAdornments();
+            ClearAdornments();
         }
     }
 
@@ -112,9 +123,31 @@ internal sealed class CsvAlternateRowAdornment
         }
     }
 
-    private void DrawAdornments()
+    private void ClearAdornments()
     {
         _layer.RemoveAllAdornments();
+
+        // Return all active rectangles to the pool
+        foreach (Rectangle rect in _activeRectangles)
+        {
+            _rectanglePool.Push(rect);
+        }
+        _activeRectangles.Clear();
+    }
+
+    private Rectangle GetOrCreateRectangle()
+    {
+        if (_rectanglePool.Count > 0)
+        {
+            return _rectanglePool.Pop();
+        }
+
+        return new Rectangle { Fill = _rowBackgroundBrush };
+    }
+
+    private void DrawAdornments()
+    {
+        ClearAdornments();
 
         if (!_isEnabled || _textView.IsClosed)
             return;
@@ -128,21 +161,21 @@ internal sealed class CsvAlternateRowAdornment
             // Get the actual line number in the document
             var lineNumber = _textView.TextSnapshot.GetLineNumberFromPosition(line.Start);
 
-            // Only highlight odd rows (0, 2, 4, ...)
+            // Only highlight even rows (0, 2, 4, ...)
             if (lineNumber % 2 != 0)
                 continue;
 
-            // Create a rectangle that spans the full viewport width
-            var rect = new System.Windows.Shapes.Rectangle
-            {
-                Width = viewportWidth,
-                Height = line.Height,
-                Fill = _rowBackgroundBrush
-            };
+            // Reuse rectangle from pool
+            Rectangle rect = GetOrCreateRectangle();
+            rect.Width = viewportWidth;
+            rect.Height = line.Height;
 
             // Position the rectangle at the left edge of the viewport
             Canvas.SetLeft(rect, viewportLeft);
             Canvas.SetTop(rect, line.Top);
+
+            // Track active rectangles for pooling
+            _activeRectangles.Add(rect);
 
             // Add to the adornment layer
             _layer.AddAdornment(
