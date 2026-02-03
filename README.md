@@ -22,6 +22,7 @@ or get the [CI build][vsixgallery].
 - **Column Alignment** — Align columns visually with a single command for table-like readability
 - **Shrink Columns** — Remove leading/trailing whitespace from all cells
 - **Alternate Row Colors** — Toggle alternating row backgrounds for improved readability
+- **Copy as Markdown** — Copy selection as a formatted Markdown table
 - **Smart Header Detection** — Automatically identifies header rows
 - **QuickInfo Tooltips** — Hover over any cell to see column name, index, and detected data type
 - **Column Sorting** — Sort ascending or descending directly from the tooltip
@@ -43,6 +44,8 @@ Working with CSV files in a plain text editor is painful:
 CSV Editor solves these problems while keeping you in Visual Studio where you belong.
 
 ## Features
+
+![Context Menu](art/context-menu.png)
 
 ### Syntax Highlighting
 
@@ -69,6 +72,23 @@ Right-click and select **Toggle Alternate Row Colors** to highlight odd and even
 - Wide tables with many columns
 - Tables viewed in word-wrap mode
 - Quick visual scanning of data
+
+### Copy as Markdown Table
+
+Right-click and select **Copy as Markdown Table** to copy the selection (or entire file if nothing is selected) as a formatted Markdown table. Perfect for:
+
+- Pasting into GitHub issues, PRs, or README files
+- Documentation and wikis
+- Slack, Teams, or other Markdown-enabled chat
+
+Example output:
+
+```markdown
+| Name  | Age | City     |
+|-------|-----|----------|
+| Alice | 30  | New York |
+| Bob   | 25  | London   |
+```
 
 ### QuickInfo Tooltips
 

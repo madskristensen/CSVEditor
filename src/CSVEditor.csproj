@@ -52,6 +52,7 @@
     <Compile Include="Adornments\CsvColumnAlignmentTagger.cs" />
     <Compile Include="Adornments\CsvColumnAlignmentTaggerProvider.cs" />
     <Compile Include="Classification\CsvErrorTagger.cs" />
+    <Compile Include="Commands\CopyAsMarkdownCommand.cs" />
     <Compile Include="Commands\ShrinkColumnsCommand.cs" />
     <Compile Include="Commands\ToggleAlternateRowsCommand.cs" />
     <Compile Include="Core\LargeFileThresholds.cs" />
