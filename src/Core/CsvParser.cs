@@ -62,9 +62,8 @@ public sealed class CsvParser
         if (string.IsNullOrEmpty(line))
             return new CsvRow(Array.Empty<CsvCell>(), new TextSpan(lineStartOffset, 0), lineNumber);
 
-        // Estimate column count by counting delimiters (optimization: pre-size list)
-        var estimatedColumns = CountDelimiters(line, delimiter) + 1;
-        var cells = new List<CsvCell>(estimatedColumns);
+        // Start with small capacity, List will grow if needed - avoids O(n) pre-scan
+        var cells = new List<CsvCell>(8);
         var position = 0;
         var columnIndex = 0;
 
@@ -353,27 +352,21 @@ public sealed class CsvParser
 
     private static CsvCell ParseUnquotedCellStatic(string line, char delimiter, ref int position, int columnIndex, int lineStartOffset, int cellStart)
     {
-        // Find the end of the cell (delimiter or end of line)
-        var valueEnd = position;
-        while (valueEnd < line.Length && line[valueEnd] != delimiter)
+        // Use IndexOf for faster delimiter search (JIT optimized)
+        var valueEnd = line.IndexOf(delimiter, position);
+        if (valueEnd < 0)
         {
-            valueEnd++;
+            valueEnd = line.Length;
         }
 
         // Extract value using Substring (faster than StringBuilder for simple cases)
-        var value = line.Substring(position, valueEnd - position);
+        var value = position == valueEnd ? string.Empty : line.Substring(position, valueEnd - position);
 
         // Calculate span (excluding delimiter)
         var spanLength = valueEnd - cellStart;
 
-        // Move position past the value
-        position = valueEnd;
-
-        // Skip delimiter if present
-        if (position < line.Length && line[position] == delimiter)
-        {
-            position++;
-        }
+        // Move position past the value and delimiter
+        position = valueEnd < line.Length ? valueEnd + 1 : valueEnd;
 
         var span = new TextSpan(lineStartOffset + cellStart, spanLength);
         return new CsvCell(value, span, columnIndex);

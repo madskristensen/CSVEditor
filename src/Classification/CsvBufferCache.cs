@@ -17,6 +17,7 @@ internal sealed class CsvBufferCache
     private char _detectedDelimiter = ',';
     private bool _delimiterDetected;
     private int _delimiterDetectionVersion = -1;
+    private bool _disposed;
 
     // Line cache: maps line number to (snapshot version, parsed row)
     private readonly Dictionary<int, (int Version, CsvRow Row)> _lineCache = [];
@@ -36,6 +37,19 @@ internal sealed class CsvBufferCache
     {
         _buffer = buffer;
         _buffer.Changed += OnBufferChanged;
+        _buffer.PostChanged += OnBufferPostChanged;
+    }
+
+    private void OnBufferPostChanged(object sender, EventArgs e)
+    {
+        // Clean up when buffer is being disposed - unsubscribe to prevent leaks
+        if (_buffer.Properties.ContainsProperty(_cacheKey))
+            return;
+
+        _disposed = true;
+        _buffer.Changed -= OnBufferChanged;
+        _buffer.PostChanged -= OnBufferPostChanged;
+        _lineCache.Clear();
     }
 
     /// <summary>
@@ -51,6 +65,9 @@ internal sealed class CsvBufferCache
     /// </summary>
     public char GetDelimiter(ITextSnapshot snapshot)
     {
+        if (_disposed)
+            return ',';
+
         var version = snapshot.Version.VersionNumber;
         if (_delimiterDetected && _delimiterDetectionVersion == version)
         {
@@ -254,6 +271,9 @@ internal sealed class CsvBufferCache
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
     {
+        if (_disposed)
+            return;
+
         // Invalidate delimiter if change is near the beginning
         if (e.Changes.Count > 0 && e.Changes[0].OldPosition < 500)
         {
@@ -284,29 +304,9 @@ internal sealed class CsvBufferCache
 
             if (hasLineCountChange)
             {
-                // Line numbers shifted - clear entire cache (unavoidable)
-                // But limit cache size to prevent memory bloat
-                if (_lineCache.Count > LargeFileThresholds.MaxCachedLines)
-                {
-                    _lineCache.Clear();
-                }
-                else
-                {
-                    // For moderate-sized caches, just clear lines after the change
-                    var firstAffectedLine = e.After.GetLineFromPosition(e.Changes[0].NewPosition).LineNumber;
-                    var keysToRemove = new List<int>();
-                    foreach (var key in _lineCache.Keys)
-                    {
-                        if (key >= firstAffectedLine)
-                        {
-                            keysToRemove.Add(key);
-                        }
-                    }
-                    foreach (var key in keysToRemove)
-                    {
-                        _lineCache.Remove(key);
-                    }
-                }
+                // Line numbers shifted - clear entire cache for simplicity
+                // This is unavoidable when line counts change
+                _lineCache.Clear();
 
                 // Only recalculate header/types when structure changes
                 _hasHeaderDetected = false;
@@ -317,6 +317,12 @@ internal sealed class CsvBufferCache
                 // Single-line edit: only invalidate that specific line
                 var affectedLine = e.After.GetLineFromPosition(e.Changes[0].NewPosition).LineNumber;
                 _lineCache.Remove(affectedLine);
+
+                // Enforce cache size limit during edits
+                if (_lineCache.Count > LargeFileThresholds.MaxCachedLines)
+                {
+                    _lineCache.Clear();
+                }
             }
         }
     }

@@ -169,7 +169,9 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
     private static Brush GetThemedLinkBrush()
     {
         System.Drawing.Color color = VSColorTheme.GetThemedColor(EnvironmentColors.ControlLinkTextColorKey);
-        return new SolidColorBrush(Color.FromRgb(color.R, color.G, color.B));
+        var brush = new SolidColorBrush(Color.FromRgb(color.R, color.G, color.B));
+        brush.Freeze(); // Freeze for cross-thread access and performance
+        return brush;
     }
 
     private void SortByColumn(int columnIndex, bool ascending)
@@ -195,7 +197,8 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
             if (string.IsNullOrWhiteSpace(lineText))
                 continue;
 
-            CsvRow row = CsvParser.ParseLine(lineText, delimiter, i);
+            // Use cache for parsing to avoid duplicate work
+            CsvRow row = _cache.GetParsedLine(line);
             var sortValue = columnIndex < row.Count ? row[columnIndex].Value : "";
 
             dataRows.Add((i, lineText, sortValue));

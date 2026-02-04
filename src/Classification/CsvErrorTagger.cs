@@ -30,11 +30,12 @@ internal sealed class CsvErrorTaggerProvider : IViewTaggerProvider
 /// Tagger that provides error squiggles for CSV validation issues.
 /// Uses background validation for large files to keep typing responsive.
 /// </summary>
-internal sealed class CsvErrorTagger : ITagger<IErrorTag>
+internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
 {
     private readonly IWpfTextView _textView;
     private readonly ITextBuffer _textBuffer;
     private readonly CsvBufferCache _cache;
+    private bool _disposed;
 
     // Background validation state
     private CancellationTokenSource _validationCts;
@@ -63,17 +64,48 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
                 Interval = TimeSpan.FromMilliseconds(_debounceDelayMs)
             };
             _debounceTimer.Tick += OnDebounceTimerTick;
+
+            _textView.Closed += OnViewClosed;
         }
+    }
+
+    private void OnViewClosed(object sender, EventArgs e)
+    {
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _textBuffer.Changed -= OnTextBufferChanged;
+
+        if (_textView != null)
+        {
+            _textView.Closed -= OnViewClosed;
+        }
+
+        _debounceTimer?.Stop();
+        _validationCts?.Cancel();
+        _validationCts?.Dispose();
     }
 
     private void OnDebounceTimerTick(object sender, EventArgs e)
     {
         _debounceTimer?.Stop();
-        StartBackgroundValidation();
+        if (!_disposed)
+        {
+            StartBackgroundValidation();
+        }
     }
 
     private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
     {
+        if (_disposed)
+            return;
+
         ITextSnapshot snapshot = e.After;
 
         // For very large files, use background-only validation
@@ -97,7 +129,11 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
 
     private void StartBackgroundValidation()
     {
+        if (_disposed)
+            return;
+
         _validationCts?.Cancel();
+        _validationCts?.Dispose();
         _validationCts = new CancellationTokenSource();
 
         ITextSnapshot snapshot = _textBuffer.CurrentSnapshot;
@@ -200,7 +236,8 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
         // Check column count (skip header row)
         if (lineNumber > 0 && expectedColumnCount > 0)
         {
-            CsvRow row = CsvParser.ParseLine(lineText, delimiter, lineNumber, line.Start.Position);
+            // Use cache to avoid duplicate parsing
+            CsvRow row = _cache.GetParsedLine(line);
             if (row.Count != expectedColumnCount)
             {
                 var errorSpan = new SnapshotSpan(line.Start, line.Length);
@@ -217,7 +254,7 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>
 
     public IEnumerable<ITagSpan<IErrorTag>> GetTags(NormalizedSnapshotSpanCollection spans)
     {
-        if (spans.Count == 0)
+        if (_disposed || spans.Count == 0)
             yield break;
 
         ITextSnapshot snapshot = spans[0].Snapshot;

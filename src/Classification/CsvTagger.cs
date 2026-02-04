@@ -31,11 +31,12 @@ internal sealed class CsvTaggerProvider : IViewTaggerProvider
 /// <summary>
 /// Tagger that provides rainbow coloring for CSV columns.
 /// </summary>
-internal sealed class CsvTagger : ITagger<IClassificationTag>
+internal sealed class CsvTagger : ITagger<IClassificationTag>, IDisposable
 {
     private readonly ITextBuffer _textBuffer;
     private readonly Dictionary<string, IClassificationType> _classificationTypes;
     private readonly CsvBufferCache _cache;
+    private bool _disposed;
 
     public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
@@ -59,8 +60,20 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
         _textBuffer.Changed += OnTextBufferChanged;
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _textBuffer.Changed -= OnTextBufferChanged;
+    }
+
     private void OnTextBufferChanged(object sender, TextContentChangedEventArgs e)
     {
+        if (_disposed)
+            return;
+
         // Notify that tags may have changed for affected lines only
         foreach (ITextChange change in e.Changes)
         {
@@ -73,7 +86,7 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>
 
     public IEnumerable<ITagSpan<IClassificationTag>> GetTags(NormalizedSnapshotSpanCollection spans)
     {
-        if (spans.Count == 0)
+        if (_disposed || spans.Count == 0)
             yield break;
 
         ITextSnapshot snapshot = spans[0].Snapshot;

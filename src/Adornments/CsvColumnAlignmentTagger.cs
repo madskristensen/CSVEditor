@@ -95,10 +95,11 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
 
     private void StartBackgroundWidthCalculation()
     {
-        if (!CsvAlignmentState.IsEnabled(_buffer))
+        if (!CsvAlignmentState.IsEnabled(_buffer) || _disposed)
             return;
 
         _calculationCts?.Cancel();
+        _calculationCts?.Dispose();
         _calculationCts = new CancellationTokenSource();
         CancellationToken token = _calculationCts.Token;
         ITextSnapshot snapshot = _buffer.CurrentSnapshot;
@@ -216,6 +217,9 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
     {
+        if (_disposed)
+            return;
+
         // Only recalculate if alignment is enabled
         if (CsvAlignmentState.IsEnabled(_buffer))
         {
