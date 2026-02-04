@@ -1,14 +1,16 @@
+using Community.VisualStudio.Toolkit;
+using CSVEditor.Classification;
+using CSVEditor.Core;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Formatting;
+using Microsoft.VisualStudio.Text.Tagging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Media;
-using CSVEditor.Classification;
-using CSVEditor.Core;
-using Microsoft.VisualStudio.Text;
-using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Formatting;
-using Microsoft.VisualStudio.Text.Tagging;
 
 namespace CSVEditor.Adornments;
 
@@ -184,16 +186,16 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
 
                 if (widthsChanged)
                 {
-                    // Notify on UI thread that tags changed
-                    _textView?.VisualElement?.Dispatcher?.BeginInvoke(new Action(() =>
+                    // Switch to UI thread to update tags
+                    ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
                     {
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                         if (!_disposed)
                         {
-                            // Widths changed - clear cache since old cached tags have wrong widths
                             _lineTagCache.Clear();
                             RaiseTagsChanged();
                         }
-                    }));
+                    }).FireAndForget();
                 }
             }
             catch (OperationCanceledException)
