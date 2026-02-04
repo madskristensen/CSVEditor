@@ -80,7 +80,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
         
         // Determine max column count
         var maxColumns = 0;
-        foreach (var row in rows)
+        foreach (CsvRow row in rows)
         {
             if (row.Count > maxColumns)
                 maxColumns = row.Count;
@@ -88,7 +88,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
 
         // Calculate column widths for nice formatting
         var columnWidths = new int[maxColumns];
-        foreach (var row in rows)
+        foreach (CsvRow row in rows)
         {
             for (var col = 0; col < row.Count; col++)
             {
@@ -106,7 +106,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
         }
 
         // Build header row
-        var firstRow = rows[0];
+        CsvRow firstRow = rows[0];
         sb.Append('|');
         for (var col = 0; col < maxColumns; col++)
         {
@@ -140,7 +140,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
 
         for (var rowIndex = startIndex; rowIndex < rows.Count; rowIndex++)
         {
-            var row = rows[rowIndex];
+            CsvRow row = rows[rowIndex];
             sb.Append('|');
             for (var col = 0; col < maxColumns; col++)
             {

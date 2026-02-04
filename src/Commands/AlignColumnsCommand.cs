@@ -17,17 +17,6 @@ internal sealed class AlignColumnsCommand : BaseCommand<AlignColumnsCommand>
         // Check if currently enabled (we're toggling)
         var isCurrentlyEnabled = CsvAlignmentState.IsEnabled(buffer);
 
-        // If trying to enable on a very large file, ask for confirmation
-        if (!isCurrentlyEnabled && lineCount > LargeFileThresholds.DisableAlignmentLineCount)
-        {
-            var confirm = await VS.MessageBox.ShowConfirmAsync(
-                "Large File",
-                $"This file has {lineCount:N0} lines. Calculating column widths may take a moment.\n\nDo you want to proceed?");
-
-            if (!confirm)
-                return;
-        }
-
         // Toggle alignment state
         CsvAlignmentState.SetEnabled(buffer, !isCurrentlyEnabled);
 

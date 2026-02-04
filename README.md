@@ -12,7 +12,7 @@ or get the [CI build][vsixgallery].
 
 --------------------------------------
 
-**Finally, a proper CSV editing experience in Visual Studio.** CSV Editor transforms flat, hard-to-read data files into colorful, navigable documents.
+**Finally, a proper CSV/TSV editing experience in Visual Studio.** CSV Editor transforms flat, hard-to-read data files into colorful, navigable documents.
 
 ![Syntax Highlighting](art/syntax-highlighting.png)
 
@@ -121,8 +121,6 @@ CSV Editor is optimized for large files with thousands of rows:
 - **Background validation** — Error detection runs in the background for files over 50K lines
 - **Sampled column widths** — Alignment uses sampling for files over 50K lines, keeping the editor responsive
 - **Virtualized rendering** — Only visible rows are processed, regardless of file size
-
-Files over 100K lines will prompt for confirmation before enabling column alignment.
 
 ## How can I help?
 

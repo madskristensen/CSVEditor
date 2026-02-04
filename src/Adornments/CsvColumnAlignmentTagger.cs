@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
-using System.Windows.Controls;
+using System.Windows;
 using System.Windows.Media;
 using CSVEditor.Classification;
 using CSVEditor.Core;
@@ -10,6 +11,22 @@ using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Tagging;
 
 namespace CSVEditor.Adornments;
+
+/// <summary>
+/// Lightweight spacer element that avoids the overhead of Border/TextBlock.
+/// Uses direct size specification without dependency property overhead.
+/// </summary>
+internal sealed class SpacerElement : FrameworkElement
+{
+    public SpacerElement(double width, double height)
+    {
+        Width = width;
+        Height = height;
+    }
+
+    // No rendering needed - this is just an invisible spacer
+    protected override void OnRender(DrawingContext drawingContext) { }
+}
 
 /// <summary>
 /// Tagger that creates virtual whitespace adornments to align CSV columns.
@@ -23,13 +40,18 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
     private bool _disposed;
     private CancellationTokenSource _calculationCts;
 
-    // Debounce timer to avoid recalculating on every keystroke
+    // Debounce timer to avoid recalculating column widths on every keystroke
     private System.Windows.Threading.DispatcherTimer _debounceTimer;
     private const int _debounceDelayMs = 300;
 
-    // Cached WPF resources to reduce allocations
-    private static readonly FontFamily _cachedFontFamily = new("Consolas");
-    private static readonly Brush _transparentBrush = Brushes.Transparent;
+    // Track visible line range to detect scrolling
+    private int _lastFirstVisibleLine = -1;
+    private int _lastLastVisibleLine = -1;
+
+    // Cache for line tags to avoid recreating WPF elements on every GetTags call
+    private readonly Dictionary<int, (int Version, int[] Widths, List<ITagSpan<IntraTextAdornmentTag>> Tags)> _lineTagCache = [];
+    private const int _maxCachedLines = 200;
+    private const int _scrollBuffer = 50;
 
     public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
@@ -43,6 +65,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         if (_textView != null)
         {
             _textView.Closed += OnClosed;
+            _textView.LayoutChanged += OnLayoutChanged;
 
             // Initialize debounce timer on UI thread
             _debounceTimer = new System.Windows.Threading.DispatcherTimer
@@ -56,12 +79,39 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         CsvAlignmentState.RegisterStateChangedHandler(buffer, OnAlignmentStateChanged);
     }
 
+    private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
+    {
+        // Only handle scrolling when alignment is enabled and widths are calculated
+        if (_disposed || !CsvAlignmentState.IsEnabled(_buffer) || _columnWidths == null)
+            return;
+
+        // Check if the visible range has actually changed (scrolling occurred)
+        if (_textView?.TextViewLines == null || _textView.TextViewLines.Count == 0)
+            return;
+
+        var firstVisibleLine = _textView.TextViewLines.FirstVisibleLine.Start.GetContainingLine().LineNumber;
+        var lastVisibleLine = _textView.TextViewLines.LastVisibleLine.End.GetContainingLine().LineNumber;
+
+        // Only raise TagsChanged if we've scrolled to show new lines
+        if (firstVisibleLine != _lastFirstVisibleLine || lastVisibleLine != _lastLastVisibleLine)
+        {
+            _lastFirstVisibleLine = firstVisibleLine;
+            _lastLastVisibleLine = lastVisibleLine;
+
+            // Notify only for the newly visible range (not full document)
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+            ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(firstVisibleLine);
+            ITextSnapshotLine lastLine = snapshot.GetLineFromLineNumber(lastVisibleLine);
+            var visibleSpan = new SnapshotSpan(firstLine.Start, lastLine.End);
+            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(visibleSpan));
+        }
+    }
+
     private void OnDebounceTimerTick(object sender, EventArgs e)
     {
         _debounceTimer?.Stop();
         if (_disposed) return;
 
-        // Now actually start the background recalculation
         StartBackgroundWidthCalculation();
     }
 
@@ -73,12 +123,14 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         {
             // Start calculating widths when alignment is enabled
             _columnWidths = null;
+            _lineTagCache.Clear();
             StartBackgroundWidthCalculation();
         }
         else
         {
             // Clear widths and refresh when disabled
             _columnWidths = null;
+            _lineTagCache.Clear();
             _debounceTimer?.Stop();
             RaiseTagsChanged();
         }
@@ -88,9 +140,23 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
     {
         if (_disposed) return;
 
-        ITextSnapshot snapshot = _buffer.CurrentSnapshot;
-        TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
-            new SnapshotSpan(snapshot, 0, snapshot.Length)));
+        // Only notify for visible lines to avoid expensive full-document processing.
+        // The LayoutChanged handler will notify for newly visible lines when scrolling.
+        if (_textView?.TextViewLines != null && _textView.TextViewLines.Count > 0)
+        {
+            var firstVisibleLine = _textView.TextViewLines.FirstVisibleLine.Start.GetContainingLine().LineNumber;
+            var lastVisibleLine = _textView.TextViewLines.LastVisibleLine.End.GetContainingLine().LineNumber;
+
+            // Update tracked range
+            _lastFirstVisibleLine = firstVisibleLine;
+            _lastLastVisibleLine = lastVisibleLine;
+
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+            ITextSnapshotLine firstLine = snapshot.GetLineFromLineNumber(firstVisibleLine);
+            ITextSnapshotLine lastLine = snapshot.GetLineFromLineNumber(lastVisibleLine);
+            var visibleSpan = new SnapshotSpan(firstLine.Start, lastLine.End);
+            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(visibleSpan));
+        }
     }
 
     private void StartBackgroundWidthCalculation()
@@ -123,6 +189,8 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
                     {
                         if (!_disposed)
                         {
+                            // Widths changed - clear cache since old cached tags have wrong widths
+                            _lineTagCache.Clear();
                             RaiseTagsChanged();
                         }
                     }));
@@ -220,40 +288,42 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         if (_disposed)
             return;
 
-        // Only recalculate if alignment is enabled
         if (CsvAlignmentState.IsEnabled(_buffer))
         {
-            // Use debounce: don't invalidate column widths immediately.
-            // Keep existing widths while typing for smooth experience.
-            // Only recalculate after typing pauses.
-            if (_debounceTimer != null)
+            // Invalidate cache for changed lines
+            foreach (ITextChange change in e.Changes)
             {
-                _debounceTimer.Stop();
-                _debounceTimer.Start();
+                var startLine = e.After.GetLineNumberFromPosition(change.NewPosition);
+                var endLine = e.After.GetLineNumberFromPosition(change.NewEnd);
+                for (var line = startLine; line <= endLine; line++)
+                {
+                    _lineTagCache.Remove(line);
+                }
             }
+
+            // Debounce: recalculate column widths after typing pauses
+            _debounceTimer?.Stop();
+            _debounceTimer?.Start();
         }
     }
 
     public IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTags(NormalizedSnapshotSpanCollection spans)
     {
-        // Only produce tags if alignment is enabled for this buffer
         if (spans.Count == 0 || _disposed || _textView == null || !CsvAlignmentState.IsEnabled(_buffer))
             yield break;
 
         ITextSnapshot snapshot = spans[0].Snapshot;
+        var snapshotVersion = snapshot.Version.VersionNumber;
 
-        // If widths not yet calculated, calculate now
         if (_columnWidths == null)
         {
             _columnWidths = CalculateColumnWidthsQuick(snapshot);
-            // Also start full calculation in background
             StartBackgroundWidthCalculation();
         }
 
         if (_columnWidths == null || _columnWidths.Length == 0)
             yield break;
 
-        // Get character width - must have text view lines
         IWpfTextViewLineCollection textViewLines = _textView.TextViewLines;
         if (textViewLines == null || textViewLines.Count == 0)
             yield break;
@@ -262,20 +332,63 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         if (charWidth <= 0)
             yield break;
 
+        // Only process visible lines + buffer for smooth scrolling
+        var firstVisibleLineNum = textViewLines.FirstVisibleLine.Start.GetContainingLine().LineNumber;
+        var lastVisibleLineNum = textViewLines.LastVisibleLine.End.GetContainingLine().LineNumber;
+        var minLine = Math.Max(0, firstVisibleLineNum - _scrollBuffer);
+        var maxLine = Math.Min(snapshot.LineCount - 1, lastVisibleLineNum + _scrollBuffer);
+
+        var currentWidths = _columnWidths;
+        var fontSize = _textView.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize ?? 12;
+        var delimiter = _cache.GetDelimiter(snapshot);
+        var isTabDelimited = delimiter == '\t';
+
         foreach (SnapshotSpan span in spans)
         {
-            ITextSnapshotLine startLine = snapshot.GetLineFromPosition(span.Start);
-            ITextSnapshotLine endLine = snapshot.GetLineFromPosition(span.End);
+            var startLineNum = snapshot.GetLineFromPosition(span.Start).LineNumber;
+            var endLineNum = snapshot.GetLineFromPosition(span.End).LineNumber;
 
-            for (var lineNum = startLine.LineNumber; lineNum <= endLine.LineNumber; lineNum++)
+            for (var lineNum = startLineNum; lineNum <= endLineNum; lineNum++)
             {
-                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNum);
-                foreach (ITagSpan<IntraTextAdornmentTag> tag in GetTagsForLine(line))
+                if (lineNum < minLine || lineNum > maxLine)
+                    continue;
+
+                if (_lineTagCache.TryGetValue(lineNum, out (int Version, int[] Widths, List<ITagSpan<IntraTextAdornmentTag>> Tags) cached) &&
+                    cached.Version == snapshotVersion &&
+                    AreWidthsEqual(cached.Widths, currentWidths))
                 {
+                    foreach (ITagSpan<IntraTextAdornmentTag> tag in cached.Tags)
+                        yield return tag;
+                    continue;
+                }
+
+                ITextSnapshotLine line = snapshot.GetLineFromLineNumber(lineNum);
+                var lineTags = new List<ITagSpan<IntraTextAdornmentTag>>();
+
+                foreach (ITagSpan<IntraTextAdornmentTag> tag in GetTagsForLine(line, charWidth, fontSize, isTabDelimited))
+                {
+                    lineTags.Add(tag);
                     yield return tag;
                 }
+
+                CacheLineTags(lineNum, snapshotVersion, currentWidths, lineTags);
             }
         }
+    }
+
+    private void CacheLineTags(int lineNum, int version, int[] widths, List<ITagSpan<IntraTextAdornmentTag>> tags)
+    {
+        if (_lineTagCache.Count >= _maxCachedLines)
+        {
+            var keysToRemove = _lineTagCache.Keys.Take(_maxCachedLines / 2).ToList();
+            foreach (var key in keysToRemove)
+            {
+                _lineTagCache.Remove(key);
+            }
+        }
+
+        // Clone widths array to avoid reference issues if _columnWidths changes
+        _lineTagCache[lineNum] = (version, (int[])widths.Clone(), tags);
     }
 
     private double GetCharacterWidth(ITextViewLineCollection textViewLines)
@@ -301,83 +414,44 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         return _textView.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize * 0.6 ?? 8.0;
     }
 
-    private IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTagsForLine(ITextSnapshotLine line)
+    private IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTagsForLine(
+            ITextSnapshotLine line, double charWidth, double fontSize, bool isTabDelimited)
     {
         var lineText = line.GetText();
         if (string.IsNullOrEmpty(lineText))
             yield break;
 
-        // Use shared cache to get parsed line
         CsvRow row = _cache.GetParsedLine(line);
-
-        // Don't add padding after the last column (no delimiter there)
         var columnsToProcess = Math.Min(row.Count - 1, _columnWidths.Length - 1);
-        var fontSize = _textView.FormattedLineSource?.DefaultTextProperties?.FontRenderingEmSize ?? 12;
-        var charWidth = GetCharacterWidth(_textView.TextViewLines);
-
-        // Get the delimiter to check if it's a tab
-        var delimiter = _cache.GetDelimiter(line.Snapshot);
-        var isTabDelimited = delimiter == '\t';
 
         for (var col = 0; col < columnsToProcess; col++)
         {
             CsvCell cell = row[col];
-            var cellCharWidth = cell.Span.Length;
-            var maxCharWidth = _columnWidths[col];
-            var paddingChars = maxCharWidth - cellCharWidth;
-
-            // Position of the delimiter character
+            var paddingChars = _columnWidths[col] - cell.Span.Length;
             var delimiterPos = cell.Span.Start + cell.Span.Length;
 
-            // Make sure we're within the line bounds
             if (delimiterPos >= line.End.Position)
                 continue;
 
             if (isTabDelimited)
             {
-                // For TSV: REPLACE the tab character with a fixed-width spacer
-                // This hides the variable-width tab and provides consistent spacing
-                // Adding 2 to paddingChars: 1 for the tab we're replacing + 1 for column gap
-                var totalPaddingChars = paddingChars + 2;
-                var spacerWidth = totalPaddingChars * charWidth;
-
-                var spacer = new Border
-                {
-                    Width = spacerWidth,
-                    Height = fontSize,
-                    Background = _transparentBrush
-                };
-
-                // Span length of 1 replaces the tab character with our adornment
+                // For TSV: replace the tab with a fixed-width spacer
+                var spacerWidth = (paddingChars + 2) * charWidth;
+                var spacer = new SpacerElement(spacerWidth, fontSize);
                 var tagSpan = new SnapshotSpan(line.Snapshot, delimiterPos, 1);
-                var tag = new IntraTextAdornmentTag(spacer, null);
-
-                yield return new TagSpan<IntraTextAdornmentTag>(tagSpan, tag);
+                yield return new TagSpan<IntraTextAdornmentTag>(tagSpan, new IntraTextAdornmentTag(spacer, null));
             }
-            else
+            else if (paddingChars > 0)
             {
-                // For CSV and other delimiters: add padding after the delimiter
-                if (paddingChars > 0)
-                {
-                    var spacer = new TextBlock
-                    {
-                        Text = new string(' ', paddingChars),
-                        FontFamily = _cachedFontFamily,
-                        FontSize = fontSize,
-                        Background = _transparentBrush,
-                        Foreground = _transparentBrush
-                    };
+                // For CSV: add padding after the delimiter
+                var afterDelimiter = delimiterPos + 1;
+                if (afterDelimiter > line.End.Position)
+                    continue;
 
-                    // Position: after the delimiter
-                    var afterDelimiter = delimiterPos + 1;
-                    if (afterDelimiter > line.End.Position)
-                        continue;
-
-                    var tagSpan = new SnapshotSpan(line.Snapshot, afterDelimiter, 0);
-                    var tag = new IntraTextAdornmentTag(spacer, null);
-
-                    yield return new TagSpan<IntraTextAdornmentTag>(tagSpan, tag);
-                }
+                var spacerWidth = paddingChars * charWidth;
+                var spacer = new SpacerElement(spacerWidth, fontSize);
+                var tagSpan = new SnapshotSpan(line.Snapshot, afterDelimiter, 0);
+                yield return new TagSpan<IntraTextAdornmentTag>(tagSpan, new IntraTextAdornmentTag(spacer, null));
             }
         }
     }
@@ -432,6 +506,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         if (_textView != null)
         {
             _textView.Closed -= OnClosed;
+            _textView.LayoutChanged -= OnLayoutChanged;
         }
     }
 }
