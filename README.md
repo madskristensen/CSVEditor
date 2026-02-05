@@ -30,7 +30,7 @@ or get the [CI build][vsixgallery].
 - **Go To Column** — Jump to any column by number
 - **Large File Support** — Optimized for files with 100K+ lines
 
-**Supports:** CSV (comma-separated) and TSV (tab-separated) files
+**Supports:** CSV (comma), TSV (tab), semicolon, and pipe (`|`) delimited files — delimiter is detected automatically
 
 ## Why CSV Editor?
 
