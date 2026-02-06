@@ -73,7 +73,9 @@ public sealed class CsvParser
             cells.Add(cell);
             columnIndex++;
 
-            if (position >= line.Length)
+            // Break if we've parsed past the end of the line
+            // or if we're at the end and the last character was NOT a delimiter (trailing empty cells only exist after trailing delimiters)
+            if (position > line.Length || (position == line.Length && (line.Length == 0 || line[line.Length - 1] != delimiter)))
                 break;
         }
 
@@ -250,8 +252,9 @@ public sealed class CsvParser
     {
         if (position >= line.Length)
         {
-            // Empty cell at end
-            return new CsvCell("", new TextSpan(lineStartOffset + position, 0), columnIndex);
+            // Empty cell at end - advance position to signal we're done
+            position++;
+            return new CsvCell("", new TextSpan(lineStartOffset + position - 1, 0), columnIndex);
         }
 
         var cellStart = position;

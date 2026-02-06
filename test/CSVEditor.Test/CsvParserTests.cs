@@ -177,4 +177,27 @@ public sealed class CsvParserTests
         Assert.AreEqual("Column 3", doc.GetColumnName(2));
         Assert.AreEqual("Column 10", doc.GetColumnName(9));
     }
+
+    [TestMethod]
+    public void Parse_TrailingEmptyColumns_ReturnsCorrectColumnCount()
+    {
+        // Reproduce issue #1: rows with trailing empty columns should still have correct column count
+        var content = "A,B,C\n1,2,3\n4,5,\n,,6";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        // All rows should have 3 columns
+        Assert.AreEqual(3, doc[0].Count, "Header row should have 3 columns");
+        Assert.AreEqual(3, doc[1].Count, "Row 1 should have 3 columns");
+        Assert.AreEqual(3, doc[2].Count, "Row 2 should have 3 columns (with trailing empty)");
+        Assert.AreEqual(3, doc[3].Count, "Row 3 should have 3 columns");
+
+        // Verify the values
+        Assert.AreEqual("4", doc[2][0].Value);
+        Assert.AreEqual("5", doc[2][1].Value);
+        Assert.AreEqual("", doc[2][2].Value, "Last column in row 2 should be empty string");
+
+        Assert.AreEqual("", doc[3][0].Value, "First column in row 3 should be empty string");
+        Assert.AreEqual("", doc[3][1].Value, "Second column in row 3 should be empty string");
+        Assert.AreEqual("6", doc[3][2].Value);
+    }
 }
