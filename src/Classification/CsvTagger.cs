@@ -113,6 +113,21 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>, IDisposable
         if (string.IsNullOrEmpty(lineText))
             yield break;
 
+        ITextSnapshot snapshot = line.Snapshot;
+        var lineNumber = line.LineNumber;
+
+        // For lines that are part of a multi-line quoted field, use document-level parse
+        // to resolve the correct column index for rainbow coloring
+        if (_cache.IsLineInsideMultiLineQuote(snapshot, lineNumber) ||
+            _cache.IsLineInsideMultiLineQuote(snapshot, lineNumber + 1))
+        {
+            foreach (ITagSpan<IClassificationTag> tag in GetMultiLineQuoteTags(line, snapshot))
+            {
+                yield return tag;
+            }
+            yield break;
+        }
+
         // Use shared cache to get parsed line
         CsvRow row = _cache.GetParsedLine(line);
 
@@ -123,8 +138,46 @@ internal sealed class CsvTagger : ITagger<IClassificationTag>, IDisposable
                 var classificationName = CsvClassificationTypes.GetColumnClassificationType(cell.ColumnIndex);
                 if (_classificationTypes.TryGetValue(classificationName, out IClassificationType classificationType))
                 {
-                    var cellSpan = new SnapshotSpan(line.Snapshot, cell.Span.Start, cell.Span.Length);
+                    var cellSpan = new SnapshotSpan(snapshot, cell.Span.Start, cell.Span.Length);
                     yield return new TagSpan<IClassificationTag>(cellSpan, new ClassificationTag(classificationType));
+                }
+            }
+        }
+    }
+
+    private IEnumerable<ITagSpan<IClassificationTag>> GetMultiLineQuoteTags(ITextSnapshotLine line, ITextSnapshot snapshot)
+    {
+        CsvDocument doc = _cache.GetDocument(snapshot);
+        var lineStart = line.Start.Position;
+        var lineEnd = line.End.Position;
+
+        // Find all cells that overlap this line from the document-level parse
+        foreach (CsvRow row in doc)
+        {
+            if (row.Span.End <= lineStart)
+                continue;
+            if (row.Span.Start > lineEnd)
+                break;
+
+            foreach (CsvCell cell in row)
+            {
+                // Check if cell overlaps this line
+                if (cell.Span.End <= lineStart || cell.Span.Start >= lineEnd)
+                    continue;
+
+                // Clamp cell span to current line
+                var spanStart = Math.Max(cell.Span.Start, lineStart);
+                var spanEnd = Math.Min(cell.Span.End, lineEnd);
+                var spanLength = spanEnd - spanStart;
+
+                if (spanLength > 0)
+                {
+                    var classificationName = CsvClassificationTypes.GetColumnClassificationType(cell.ColumnIndex);
+                    if (_classificationTypes.TryGetValue(classificationName, out IClassificationType classificationType))
+                    {
+                        var cellSpan = new SnapshotSpan(snapshot, spanStart, spanLength);
+                        yield return new TagSpan<IClassificationTag>(cellSpan, new ClassificationTag(classificationType));
+                    }
                 }
             }
         }

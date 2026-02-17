@@ -200,4 +200,67 @@ public sealed class CsvParserTests
         Assert.AreEqual("", doc[3][1].Value, "Second column in row 3 should be empty string");
         Assert.AreEqual("6", doc[3][2].Value);
     }
+
+    [TestMethod]
+    public void Parse_MultiLineQuotedField_ReturnsCorrectRowCount()
+    {
+        var content = "Col 1,Col 2,Col 3\nValue 1,\"Value \n2\",Value 3\nValue 4,Value 5,Value 6";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(3, doc.Count, "Multi-line quoted field should not create extra rows");
+    }
+
+    [TestMethod]
+    public void Parse_MultiLineQuotedField_ReturnsCorrectValues()
+    {
+        var content = "Col 1,Col 2,Col 3\nValue 1,\"Value \n2\",Value 3\nValue 4,Value 5,Value 6";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual("Value 1", doc[1][0].Value);
+        Assert.AreEqual("Value \n2", doc[1][1].Value, "Multi-line value should preserve line break");
+        Assert.AreEqual("Value 3", doc[1][2].Value);
+        Assert.IsTrue(doc[1][1].IsQuoted);
+    }
+
+    [TestMethod]
+    public void Parse_MultiLineQuotedFieldWithCRLF_ReturnsCorrectValues()
+    {
+        var content = "Col 1,Col 2,Col 3\r\nValue 1,\"Value \r\n2\",Value 3\r\nValue 4,Value 5,Value 6";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(3, doc.Count);
+        Assert.AreEqual("Value \r\n2", doc[1][1].Value, "Multi-line value should preserve CRLF");
+    }
+
+    [TestMethod]
+    public void Parse_MultiLineQuotedFieldSpanningMultipleLines_ReturnsCorrectValues()
+    {
+        var content = "A,B\n\"line1\nline2\nline3\",value";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(2, doc.Count);
+        Assert.AreEqual("line1\nline2\nline3", doc[1][0].Value);
+        Assert.AreEqual("value", doc[1][1].Value);
+    }
+
+    [TestMethod]
+    public void Parse_MultiLineQuotedFieldWithEscapedQuotes_ReturnsCorrectValues()
+    {
+        var content = "A,B\n\"line1\n\"\"quoted\"\"\nline3\",value";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(2, doc.Count);
+        Assert.AreEqual("line1\n\"quoted\"\nline3", doc[1][0].Value);
+    }
+
+    [TestMethod]
+    public void Parse_MultiLineQuotedFieldColumnCount_IsCorrect()
+    {
+        var content = "Col 1,Col 2,Col 3\nValue 1,\"Value \n2\",Value 3\nValue 4,Value 5,Value 6";
+        CsvDocument doc = CsvParser.Parse(content, CsvDelimiter.Comma);
+
+        Assert.AreEqual(3, doc[0].Count, "Header row should have 3 columns");
+        Assert.AreEqual(3, doc[1].Count, "Row with multi-line field should have 3 columns");
+        Assert.AreEqual(3, doc[2].Count, "Row after multi-line field should have 3 columns");
+    }
 }

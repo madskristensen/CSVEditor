@@ -38,23 +38,27 @@ internal sealed class CsvQuickInfoSource(ITextBuffer textBuffer) : IAsyncQuickIn
         ITextSnapshot snapshot = textBuffer.CurrentSnapshot;
         var position = triggerPoint.Value.Position;
 
-        // Parse current line using shared cache
-        ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
-        CsvRow row = _cache.GetParsedLine(line);
-
-        // Find the cell at the hover position
-        CsvCell cell = row.GetCellAtPosition(position);
+        // Use document-level parse to correctly resolve cells in multi-line quoted fields
+        CsvCell cell = _cache.GetCellAtPosition(snapshot, position);
         if (cell == null)
             return null;
 
+        ITextSnapshotLine line = snapshot.GetLineFromPosition(position);
         var hasHeader = _cache.HasHeader(snapshot);
         var columnName = GetColumnName(snapshot, cell.ColumnIndex, hasHeader);
         CsvDataType columnType = _cache.GetColumnType(snapshot, cell.ColumnIndex);
         var totalColumns = _cache.GetExpectedColumnCount(snapshot);
         var isFirstRow = line.LineNumber == 0;
 
-        // Create tracking span for the cell
-        var cellSpan = new SnapshotSpan(snapshot, cell.Span.Start, cell.Span.Length);
+        // Create tracking span for the cell (clamp to current line for multi-line cells)
+        var lineStart = line.Start.Position;
+        var lineEnd = line.End.Position;
+        var spanStart = Math.Max(cell.Span.Start, lineStart);
+        var spanLength = Math.Min(cell.Span.End, lineEnd) - spanStart;
+        if (spanLength <= 0)
+            return null;
+
+        var cellSpan = new SnapshotSpan(snapshot, spanStart, spanLength);
         ITrackingSpan trackingSpan = snapshot.CreateTrackingSpan(cellSpan, SpanTrackingMode.EdgeInclusive);
 
         // Build tooltip content (must be on UI thread for WPF elements)

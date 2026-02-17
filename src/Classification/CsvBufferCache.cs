@@ -24,6 +24,15 @@ internal sealed class CsvBufferCache
     private int _expectedColumnCount = -1;
     private int _expectedColumnCountVersion = -1;
 
+    // Multi-line quote state cache
+    private bool[] _lineStartsInQuote;
+    private bool _documentEndsInQuote;
+    private int _quoteStateVersion = -1;
+
+    // Document-level parse cache (for correct multi-line field resolution)
+    private CsvDocument _documentParse;
+    private int _documentParseVersion = -1;
+
     // Column type cache
     private CsvDataType[] _columnTypes;
     private int _columnTypesVersion = -1;
@@ -138,6 +147,33 @@ internal sealed class CsvBufferCache
     public CsvRow GetParsedLine(ITextSnapshotLine line)
     {
         return GetParsedLine(line.Snapshot, line.LineNumber);
+    }
+
+    /// <summary>
+    /// Gets the full document-level parse, computing and caching if necessary.
+    /// This correctly handles multi-line quoted fields per RFC 4180.
+    /// </summary>
+    public CsvDocument GetDocument(ITextSnapshot snapshot)
+    {
+        var version = snapshot.Version.VersionNumber;
+        if (_documentParseVersion == version && _documentParse != null)
+            return _documentParse;
+
+        var delimiter = GetDelimiter(snapshot);
+        var content = snapshot.GetText();
+        _documentParse = CsvParser.Parse(content, delimiter);
+        _documentParseVersion = version;
+        return _documentParse;
+    }
+
+    /// <summary>
+    /// Finds the cell at the given buffer position, correctly resolving multi-line quoted fields.
+    /// Returns null if no cell is found at the position.
+    /// </summary>
+    public CsvCell GetCellAtPosition(ITextSnapshot snapshot, int position)
+    {
+        CsvDocument doc = GetDocument(snapshot);
+        return doc.GetCellAtPosition(position);
     }
 
     /// <summary>
@@ -267,6 +303,87 @@ internal sealed class CsvBufferCache
         _expectedColumnCount = -1;
         _columnTypes = null;
         _hasHeaderDetected = false;
+        _lineStartsInQuote = null;
+    }
+
+    /// <summary>
+    /// Returns whether the given line starts inside a multi-line quoted field.
+    /// </summary>
+    public bool IsLineInsideMultiLineQuote(ITextSnapshot snapshot, int lineNumber)
+    {
+        EnsureQuoteStateComputed(snapshot);
+
+        if (_lineStartsInQuote == null || lineNumber < 0 || lineNumber >= _lineStartsInQuote.Length)
+            return false;
+
+        return _lineStartsInQuote[lineNumber];
+    }
+
+    /// <summary>
+    /// Returns whether the document ends with an unclosed quote.
+    /// </summary>
+    public bool DocumentEndsInQuote(ITextSnapshot snapshot)
+    {
+        EnsureQuoteStateComputed(snapshot);
+        return _documentEndsInQuote;
+    }
+
+    /// <summary>
+    /// Finds the line number where the unclosed multi-line quote region containing <paramref name="lineNumber"/> begins.
+    /// Returns -1 if the line is not inside a multi-line quoted field.
+    /// </summary>
+    public int FindMultiLineQuoteStartLine(ITextSnapshot snapshot, int lineNumber)
+    {
+        EnsureQuoteStateComputed(snapshot);
+
+        if (_lineStartsInQuote == null || lineNumber < 0 || lineNumber >= _lineStartsInQuote.Length)
+            return -1;
+
+        if (!_lineStartsInQuote[lineNumber])
+            return -1;
+
+        // Walk backwards to find the line that opened the quote
+        for (var i = lineNumber - 1; i >= 0; i--)
+        {
+            if (!_lineStartsInQuote[i])
+                return i;
+        }
+
+        return 0;
+    }
+
+    private void EnsureQuoteStateComputed(ITextSnapshot snapshot)
+    {
+        var version = snapshot.Version.VersionNumber;
+        if (_quoteStateVersion == version && _lineStartsInQuote != null)
+            return;
+
+        var lineCount = snapshot.LineCount;
+        var startsInQuote = new bool[lineCount];
+        var inQuote = false;
+
+        for (var i = 0; i < lineCount; i++)
+        {
+            startsInQuote[i] = inQuote;
+
+            var lineText = snapshot.GetLineFromLineNumber(i).GetText();
+            for (var j = 0; j < lineText.Length; j++)
+            {
+                if (lineText[j] == '"')
+                {
+                    if (inQuote && j + 1 < lineText.Length && lineText[j + 1] == '"')
+                    {
+                        j++; // Skip escaped quote
+                        continue;
+                    }
+                    inQuote = !inQuote;
+                }
+            }
+        }
+
+        _lineStartsInQuote = startsInQuote;
+        _documentEndsInQuote = inQuote;
+        _quoteStateVersion = version;
     }
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -279,6 +396,11 @@ internal sealed class CsvBufferCache
         {
             InvalidateDelimiter();
         }
+
+        // Invalidate quote state and document parse on every edit since a quote character change
+        // can affect multi-line quote regions across the entire document
+        _lineStartsInQuote = null;
+        _documentParse = null;
 
         // Don't invalidate column types on every keystroke - they're based on sampling
         // and unlikely to change significantly from a single edit

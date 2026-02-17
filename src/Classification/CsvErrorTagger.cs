@@ -117,6 +117,35 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
             return;
         }
 
+        // Check if any change involves a quote character. Quote edits can change
+        // multi-line quote state on nearby lines, so refresh a bounded region
+        // around the change to clear stale errors.
+        var hasQuoteChange = false;
+        foreach (ITextChange change in e.Changes)
+        {
+            if (change.OldText.IndexOf('"') >= 0 || change.NewText.IndexOf('"') >= 0)
+            {
+                hasQuoteChange = true;
+                break;
+            }
+        }
+
+        if (hasQuoteChange)
+        {
+            const int contextLines = 20;
+            foreach (ITextChange change in e.Changes)
+            {
+                ITextSnapshotLine changeLine = snapshot.GetLineFromPosition(change.NewPosition);
+                var startLineNum = Math.Max(0, changeLine.LineNumber - contextLines);
+                var endLineNum = Math.Min(snapshot.LineCount - 1, changeLine.LineNumber + contextLines);
+                ITextSnapshotLine startLine = snapshot.GetLineFromLineNumber(startLineNum);
+                ITextSnapshotLine endLine = snapshot.GetLineFromLineNumber(endLineNum);
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+                    new SnapshotSpan(startLine.Start, endLine.End)));
+            }
+            return;
+        }
+
         // For smaller files, notify about changed lines immediately
         foreach (ITextChange change in e.Changes)
         {
@@ -207,6 +236,12 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
 
     private ITagSpan<IErrorTag> ValidateLineBackground(ITextSnapshotLine line, string lineText, int lineNumber, int expectedColumnCount, char delimiter)
     {
+        ITextSnapshot snapshot = line.Snapshot;
+
+        // Skip continuation lines inside multi-line quoted fields
+        if (_cache.IsLineInsideMultiLineQuote(snapshot, lineNumber))
+            return null;
+
         // Check for unclosed quotes
         var inQuotes = false;
         var quoteStartIndex = -1;
@@ -228,10 +263,20 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
 
         if (inQuotes && quoteStartIndex >= 0)
         {
+            // Only flag as error if the document actually ends with an unclosed quote
+            // and this line is the origin of that unclosed region
+            if (!_cache.DocumentEndsInQuote(snapshot))
+                return null;
+
             var errorSpan = new SnapshotSpan(line.Start + quoteStartIndex, line.End);
             return new TagSpan<IErrorTag>(errorSpan,
                 new ErrorTag(PredefinedErrorTypeNames.SyntaxError, "Unclosed quote"));
         }
+
+        // Skip column count validation for lines that start a multi-line quoted field.
+        // ParseLine operates on single lines and cannot correctly count columns for partial rows.
+        if (_cache.IsLineInsideMultiLineQuote(snapshot, lineNumber + 1))
+            return null;
 
         // Check column count (skip header row)
         if (lineNumber > 0 && expectedColumnCount > 0)
@@ -320,14 +365,25 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
         if (string.IsNullOrEmpty(lineText))
             yield break;
 
-        CsvRow row = _cache.GetParsedLine(line);
+        ITextSnapshot snapshot = line.Snapshot;
 
-        ITagSpan<IErrorTag> unclosedQuoteError = CheckUnclosedQuotes(line, lineText);
+        // Skip continuation lines inside multi-line quoted fields
+        if (_cache.IsLineInsideMultiLineQuote(snapshot, lineNumber))
+            yield break;
+
+        ITagSpan<IErrorTag> unclosedQuoteError = CheckUnclosedQuotes(line, lineText, snapshot);
         if (unclosedQuoteError != null)
         {
             yield return unclosedQuoteError;
             yield break;
         }
+
+        // Skip column count validation for lines that start a multi-line quoted field.
+        // ParseLine operates on single lines and cannot correctly count columns for partial rows.
+        if (_cache.IsLineInsideMultiLineQuote(snapshot, lineNumber + 1))
+            yield break;
+
+        CsvRow row = _cache.GetParsedLine(line);
 
         if (lineNumber > 0 && expectedColumnCount > 0)
         {
@@ -345,7 +401,7 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
         }
     }
 
-    private ITagSpan<IErrorTag> CheckUnclosedQuotes(ITextSnapshotLine line, string lineText)
+    private ITagSpan<IErrorTag> CheckUnclosedQuotes(ITextSnapshotLine line, string lineText, ITextSnapshot snapshot)
     {
         var inQuotes = false;
         var quoteStartIndex = -1;
@@ -368,6 +424,11 @@ internal sealed class CsvErrorTagger : ITagger<IErrorTag>, IDisposable
 
         if (inQuotes && quoteStartIndex >= 0)
         {
+            // Only flag as error if the document actually ends with an unclosed quote.
+            // Otherwise, this is a valid multi-line quoted field per RFC 4180.
+            if (!_cache.DocumentEndsInQuote(snapshot))
+                return null;
+
             var errorSpan = new SnapshotSpan(line.Start + quoteStartIndex, line.End);
             return new TagSpan<IErrorTag>(
                 errorSpan,
