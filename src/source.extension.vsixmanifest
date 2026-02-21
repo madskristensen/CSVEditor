@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="CSVEditor.5164fa67-5caa-4d84-9087-bbaedc2a5539" Version="1.0.900" Language="en-US" Publisher="Mads Kristensen" />
+        <Identity Id="CSVEditor.5164fa67-5caa-4d84-9087-bbaedc2a5539" Version="1.0.901" Language="en-US" Publisher="Mads Kristensen" />
         <DisplayName>CSV Editor</DisplayName>
         <Description xml:space="preserve">CSV Editor transforms flat, hard-to-read data files into colorful, navigable documents. Supports both CSV and TSV files</Description>
         <MoreInfo>https://github.com/madskristensen/CSVEditor</MoreInfo>

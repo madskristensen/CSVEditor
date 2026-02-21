@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
   <Extern href="stdidcmd.h"/>
@@ -77,8 +77,8 @@
   </Commands>
 
   <VisibilityConstraints>
-    <VisibilityItem guid="CSVEditor" id="AlignColumnsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="GoToColumnCommand" context="ContentType" />
+    <VisibilityItem guid="CSVEditor" id="AlignColumnsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="ShrinkColumnsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="ToggleAlternateRowsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="CopyAsMarkdownCommand" context="ContentType" />
@@ -88,7 +88,7 @@
     <GuidSymbol name="ContentType" value="{5b2dc8c1-5049-43fb-b02a-376196cec872}" />
     <GuidSymbol name="CSVEditor" value="{55b9ed45-59d1-40dc-8003-343d792221d7}">
       <IDSymbol name="CsvContextMenuGroup" value="0x0002" />
-      <IDSymbol name="GoToColumnCommand" value="0x0100" />
+      <IDSymbol name="GoToColumnCommand" value="0x0105" />
       <IDSymbol name="AlignColumnsCommand" value="0x0101" />
       <IDSymbol name="ShrinkColumnsCommand" value="0x0102" />
       <IDSymbol name="ToggleAlternateRowsCommand" value="0x0103" />

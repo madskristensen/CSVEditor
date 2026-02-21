@@ -88,13 +88,9 @@ internal sealed class ShrinkColumnsCommand : BaseCommand<ShrinkColumnsCommand>
                value.Contains("\r");
     }
 
-    protected override void BeforeQueryStatus(EventArgs e)
+    protected override Task InitializeCompletedAsync()
     {
-        ThreadHelper.JoinableTaskFactory.Run(async () =>
-        {
-            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
-            var contentType = docView?.TextView?.TextBuffer?.ContentType?.TypeName;
-            Command.Visible = contentType == "csv" || contentType == "tsv";
-        });
+        Command.Supported = false;
+        return base.InitializeCompletedAsync();
     }
 }

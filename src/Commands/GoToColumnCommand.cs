@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using CSVEditor.Core;
@@ -57,7 +56,7 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
         else
         {
             // Try to find by name (case-insensitive)
-            columnIndex = columnNames.FindIndex(n => 
+            columnIndex = columnNames.FindIndex(n =>
                 string.Equals(n, input.Trim(), StringComparison.OrdinalIgnoreCase));
 
             if (columnIndex < 0)
@@ -71,14 +70,20 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
         NavigateToColumn(textView, delimiter, columnIndex);
     }
 
-    protected override void BeforeQueryStatus(EventArgs e)
+    //protected override void BeforeQueryStatus(EventArgs e)
+    //{
+    //    ThreadHelper.JoinableTaskFactory.Run(async () =>
+    //    {
+    //        DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
+    //        var contentType = docView?.TextView?.TextBuffer?.ContentType?.TypeName;
+    //        Command.Visible = contentType == "csv" || contentType == "tsv";
+    //    });
+    //}
+
+    protected override Task InitializeCompletedAsync()
     {
-        ThreadHelper.JoinableTaskFactory.Run(async () =>
-        {
-            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
-            var contentType = docView?.TextView?.TextBuffer?.ContentType?.TypeName;
-            Command.Visible = contentType == "csv" || contentType == "tsv";
-        });
+        Command.Supported = false;
+        return base.InitializeCompletedAsync();
     }
 
     private string ShowInputDialog(List<string> columnNames)
@@ -120,10 +125,10 @@ internal sealed class GoToColumnCommand : BaseCommand<GoToColumnCommand>
         if (cell != null)
         {
             var point = new SnapshotPoint(snapshot, cell.Span.Start);
-                        textView.Caret.MoveTo(point);
-                        textView.ViewScroller.EnsureSpanVisible(
-                            new SnapshotSpan(point, 0),
-                            EnsureSpanVisibleOptions.AlwaysCenter);
-                    }
-                }
-            }
+            textView.Caret.MoveTo(point);
+            textView.ViewScroller.EnsureSpanVisible(
+                new SnapshotSpan(point, 0),
+                EnsureSpanVisibleOptions.AlwaysCenter);
+        }
+    }
+}

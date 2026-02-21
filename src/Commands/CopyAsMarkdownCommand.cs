@@ -18,8 +18,8 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
 
         ITextView textView = docView.TextView;
         ITextSnapshot snapshot = textView.TextBuffer.CurrentSnapshot;
-        CsvBufferCache cache = CsvBufferCache.GetOrCreate(textView.TextBuffer);
-        char delimiter = cache.GetDelimiter(snapshot);
+        var cache = CsvBufferCache.GetOrCreate(textView.TextBuffer);
+        var delimiter = cache.GetDelimiter(snapshot);
 
         // Get selection or entire document
         string textToCopy;
@@ -44,13 +44,13 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
         // Parse lines
         var rows = new List<CsvRow>();
         var lines = textToCopy.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-        
+
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i];
             if (string.IsNullOrEmpty(line))
                 continue;
-                
+
             CsvRow row = CsvParser.ParseLine(line, delimiter, i);
             rows.Add(row);
         }
@@ -62,7 +62,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
         }
 
         // Build markdown table
-        string markdown = BuildMarkdownTable(rows, cache.HasHeader(snapshot));
+        var markdown = BuildMarkdownTable(rows, cache.HasHeader(snapshot));
 
         // Copy to clipboard
         System.Windows.Clipboard.SetText(markdown);
@@ -77,7 +77,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
             return string.Empty;
 
         var sb = new StringBuilder();
-        
+
         // Determine max column count
         var maxColumns = 0;
         foreach (CsvRow row in rows)
@@ -129,7 +129,7 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
 
         // Build data rows (skip first if it's a header)
         var startIndex = hasHeader ? 1 : 0;
-        
+
         // If no header but we already used row 0 as header, we need to repeat it as data
         if (!hasHeader && rows.Count > 0)
         {
@@ -164,13 +164,9 @@ internal sealed class CopyAsMarkdownCommand : BaseCommand<CopyAsMarkdownCommand>
         return value.Replace("|", "\\|");
     }
 
-    protected override void BeforeQueryStatus(EventArgs e)
+    protected override Task InitializeCompletedAsync()
     {
-        ThreadHelper.JoinableTaskFactory.Run(async () =>
-        {
-            DocumentView docView = await VS.Documents.GetActiveDocumentViewAsync();
-            var contentType = docView?.TextView?.TextBuffer?.ContentType?.TypeName;
-            Command.Visible = contentType == "csv" || contentType == "tsv";
-        });
+        Command.Supported = false;
+        return base.InitializeCompletedAsync();
     }
 }
