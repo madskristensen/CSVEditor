@@ -21,7 +21,7 @@ internal sealed class CsvErrorTaggerProvider : IViewTaggerProvider
 {
     public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
     {
-        return buffer.Properties.GetOrCreateSingletonProperty(
+        return textView.Properties.GetOrCreateSingletonProperty(
             () => new CsvErrorTagger(textView as IWpfTextView, buffer)) as ITagger<T>;
     }
 }

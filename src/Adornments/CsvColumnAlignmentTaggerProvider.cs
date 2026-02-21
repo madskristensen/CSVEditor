@@ -27,7 +27,7 @@ internal sealed class CsvColumnAlignmentTaggerProvider : IViewTaggerProvider
         if (buffer != textView.TextBuffer)
             return null;
 
-        return buffer.Properties.GetOrCreateSingletonProperty(
+        return textView.Properties.GetOrCreateSingletonProperty(
             () => new CsvColumnAlignmentTagger(textView as IWpfTextView, buffer)) as ITagger<T>;
     }
 }
