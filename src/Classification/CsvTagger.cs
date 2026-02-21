@@ -23,7 +23,7 @@ internal sealed class CsvTaggerProvider : IViewTaggerProvider
 
     public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
     {
-        return buffer.Properties.GetOrCreateSingletonProperty(
+        return textView.Properties.GetOrCreateSingletonProperty(
             () => new CsvTagger(buffer, ClassificationRegistry)) as ITagger<T>;
     }
 }
