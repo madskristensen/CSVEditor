@@ -29,6 +29,7 @@ or get the [CI build][vsixgallery].
 - **Error Detection** — Rows with inconsistent column counts are highlighted
 - **Go To Column** — Jump to any column by number
 - **Large File Support** — Optimized for files with 100K+ lines
+- **Binary Character Handling** — Automatically sanitizes files with null bytes and other binary characters
 
 **Supports:** CSV (comma), TSV (tab), semicolon, and pipe (`|`) delimited files — delimiter is detected automatically
 
@@ -121,6 +122,17 @@ CSV Editor is optimized for large files with thousands of rows:
 - **Background validation** — Error detection runs in the background for files over 50K lines
 - **Sampled column widths** — Alignment uses sampling for files over 50K lines, keeping the editor responsive
 - **Virtualized rendering** — Only visible rows are processed, regardless of file size
+
+### Binary Character Handling
+
+CSV files sometimes contain binary characters (null bytes, control characters) that can cause problems. CSV Editor automatically:
+
+- **Sanitizes binary content** — Replaces binary characters with the Unicode replacement character (�)
+- **Preserves whitespace** — Tabs, newlines, and carriage returns are kept intact
+- **Allows editing** — Files remain fully editable and saveable after sanitization
+- **Works automatically** — Just open the file normally, no special steps needed
+
+The sanitization happens transparently when you open a CSV/TSV file containing binary characters. The cleaning process is optimized for files of any size using a single-pass algorithm.
 
 ## How can I help?
 

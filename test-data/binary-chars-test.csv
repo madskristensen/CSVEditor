@@ -1,0 +1,9 @@
+Name,Age,City,Notes
+John,30,New York,Regular data
+Jane,25,Los Angeles,Has null byte after this
+Bob,35,Chicago,Another row
+Alice,28,Seattle,Control char here
+Charlie,42,Boston,Normal again
+David,31,Miami,More test data
+Eve,29,Portland,Another test
+Frank,38,Denver,Final row
