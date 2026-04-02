@@ -31,5 +31,6 @@ namespace CSVEditor
         public const int ShrinkColumnsCommand = 0x0102;
         public const int ToggleAlternateRowsCommand = 0x0103;
         public const int CopyAsMarkdownCommand = 0x0104;
+        public const int ToggleStickyHeaderCommand = 0x0106;
     }
 }

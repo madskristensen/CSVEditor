@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.VisualStudio.Text;
 
 namespace CSVEditor;
@@ -58,6 +59,7 @@ internal sealed class AlignColumnsCommand : BaseCommand<AlignColumnsCommand>
 internal static class CsvAlignmentState
 {
     private static readonly object _alignmentEnabledKey = new();
+    private static readonly object _handlersKey = new();
 
     public static bool IsEnabled(ITextBuffer buffer)
     {
@@ -70,17 +72,47 @@ internal static class CsvAlignmentState
         if (buffer == null) return;
         buffer.Properties[_alignmentEnabledKey] = enabled;
 
-        // Notify the tagger that state changed
-        if (buffer.Properties.TryGetProperty(typeof(AlignmentStateChangedHandler), out AlignmentStateChangedHandler handler))
+        // Notify all registered handlers that state changed
+        if (buffer.Properties.TryGetProperty(_handlersKey, out List<AlignmentStateChangedHandler> handlers))
         {
-            handler?.Invoke(enabled);
+            foreach (AlignmentStateChangedHandler handler in handlers)
+            {
+                handler?.Invoke(enabled);
+            }
         }
     }
 
     public static void RegisterStateChangedHandler(ITextBuffer buffer, AlignmentStateChangedHandler handler)
     {
-        if (buffer == null) return;
-        buffer.Properties[typeof(AlignmentStateChangedHandler)] = handler;
+        if (buffer == null || handler == null) return;
+
+        if (!buffer.Properties.TryGetProperty(_handlersKey, out List<AlignmentStateChangedHandler> handlers))
+        {
+            handlers = [];
+            buffer.Properties[_handlersKey] = handlers;
+        }
+
+        if (!handlers.Contains(handler))
+        {
+            handlers.Add(handler);
+        }
+    }
+
+    /// <summary>
+    /// Requests a refresh of the alignment tags (e.g., after header row edits).
+    /// </summary>
+    public static void RequestRefresh(ITextBuffer buffer)
+    {
+        if (buffer == null || !IsEnabled(buffer)) return;
+
+        // Notify handlers with current state to trigger refresh
+        if (buffer.Properties.TryGetProperty(_handlersKey, out List<AlignmentStateChangedHandler> handlers))
+        {
+            foreach (AlignmentStateChangedHandler handler in handlers)
+            {
+                handler?.Invoke(true);
+            }
+        }
     }
 
     public delegate void AlignmentStateChangedHandler(bool enabled);

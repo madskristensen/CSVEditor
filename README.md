@@ -20,6 +20,7 @@ or get the [CI build][vsixgallery].
 
 - **Syntax Highlighting** — Color-coded columns for instant visual parsing
 - **Column Alignment** — Align columns visually with a single command for table-like readability
+- **Sticky Header Row** — Lock the header row at the top while scrolling through large files
 - **Shrink Columns** — Remove leading/trailing whitespace from all cells
 - **Alternate Row Colors** — Toggle alternating row backgrounds for improved readability
 - **Copy as Markdown** — Copy selection as a formatted Markdown table
@@ -57,6 +58,21 @@ Each column gets its own color, making it easy to visually track data across row
 Right-click and select **Align CSV Columns** to visually align columns for perfect readability. This uses virtual alignment (adornments) — your file content is not modified.
 
 ![Column Alignment](art/column-alignment.png)
+
+### Sticky Header Row
+
+Right-click and select **Toggle Sticky Header Row** to lock the header row at the top of the editor while scrolling. This is invaluable for:
+
+- Large files where scrolling loses sight of column headers
+- Quick reference of column names while editing data
+- Working with wide tables that require horizontal scrolling
+
+The sticky header:
+
+- Displays column names with the same color-coding as the data
+- Stays synchronized with horizontal scrolling
+- Works seamlessly with Column Alignment when enabled
+- Is non-interactive — clicks pass through to the editor below
 
 ### Shrink Columns
 

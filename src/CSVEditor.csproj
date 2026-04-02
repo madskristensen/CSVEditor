@@ -45,6 +45,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Adornments\CsvStickyHeader.cs" />
+    <Compile Include="Adornments\CsvStickyHeaderProvider.cs" />
     <Compile Include="Classification\CsvAlternateRowTagger.cs" />
     <Compile Include="Classification\CsvBufferCache.cs" />
     <Compile Include="Classification\CsvClassificationTypes.cs" />
@@ -56,6 +58,7 @@
     <Compile Include="Commands\CopyAsMarkdownCommand.cs" />
     <Compile Include="Commands\ShrinkColumnsCommand.cs" />
     <Compile Include="Commands\ToggleAlternateRowsCommand.cs" />
+    <Compile Include="Commands\ToggleStickyHeaderCommand.cs" />
     <Compile Include="Core\LargeFileThresholds.cs" />
     <Compile Include="Editor\BinaryCharacterSanitizer.cs" />
     <Compile Include="QuickInfo\CsvQuickInfoSource.cs" />

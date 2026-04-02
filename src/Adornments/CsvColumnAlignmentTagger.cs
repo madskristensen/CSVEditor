@@ -183,6 +183,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
                 // Only update if widths actually changed
                 var widthsChanged = !AreWidthsEqual(_columnWidths, widths);
                 _columnWidths = widths;
+                _buffer.Properties[CsvStickyHeader.ColumnWidthsKey] = widths;
 
                 if (widthsChanged)
                 {
@@ -194,6 +195,9 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
                         {
                             _lineTagCache.Clear();
                             RaiseTagsChanged();
+
+                            // Notify sticky header that widths changed
+                            NotifyStickyHeaderWidthsChanged();
                         }
                     }).FireAndForget();
                 }
@@ -320,6 +324,7 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         if (_columnWidths == null)
         {
             _columnWidths = CalculateColumnWidthsQuick(snapshot);
+            _buffer.Properties[CsvStickyHeader.ColumnWidthsKey] = _columnWidths;
             StartBackgroundWidthCalculation();
         }
 
@@ -487,6 +492,14 @@ internal sealed class CsvColumnAlignmentTagger : ITagger<IntraTextAdornmentTag>,
         }
 
         return [.. columnMaxWidths];
+    }
+
+    private void NotifyStickyHeaderWidthsChanged()
+    {
+        if (_buffer.Properties.TryGetProperty(CsvStickyHeader.ColumnWidthsChangedKey, out System.Action callback))
+        {
+            callback?.Invoke();
+        }
     }
 
     public void Dispose()

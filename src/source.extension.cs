@@ -12,7 +12,7 @@ namespace CSVEditor
         public const string Name = "CSV Editor";
         public const string Description = @"CSV Editor transforms flat, hard-to-read data files into colorful, navigable documents. Supports both CSV and TSV files";
         public const string Language = "en-US";
-        public const string Version = "1.0.901";
+        public const string Version = "1.0.902";
         public const string Author = "Mads Kristensen";
         public const string Tags = "csv, tsv";
         public const bool IsPreview = false;

@@ -73,6 +73,18 @@
               <LocCanonicalName>.CSVEditor.CopyAsMarkdownCommand</LocCanonicalName>
             </Strings>
           </Button>
+
+          <Button guid="CSVEditor" id="ToggleStickyHeaderCommand" priority="0x0104" type="Button">
+            <Parent guid="CSVEditor" id="CsvContextMenuGroup" />
+            <Icon guid="ImageCatalogGuid" id="Pin" />
+            <CommandFlag>IconIsMoniker</CommandFlag>
+            <CommandFlag>DynamicVisibility</CommandFlag>
+            <CommandFlag>DefaultInvisible</CommandFlag>
+            <Strings>
+              <ButtonText>Lock Header Row</ButtonText>
+              <LocCanonicalName>.CSVEditor.ToggleStickyHeaderCommand</LocCanonicalName>
+            </Strings>
+          </Button>
         </Buttons>
   </Commands>
 
@@ -82,6 +94,7 @@
     <VisibilityItem guid="CSVEditor" id="ShrinkColumnsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="ToggleAlternateRowsCommand" context="ContentType" />
     <VisibilityItem guid="CSVEditor" id="CopyAsMarkdownCommand" context="ContentType" />
+    <VisibilityItem guid="CSVEditor" id="ToggleStickyHeaderCommand" context="ContentType" />
   </VisibilityConstraints>
 
   <Symbols>
@@ -93,6 +106,7 @@
       <IDSymbol name="ShrinkColumnsCommand" value="0x0102" />
       <IDSymbol name="ToggleAlternateRowsCommand" value="0x0103" />
       <IDSymbol name="CopyAsMarkdownCommand" value="0x0104" />
+      <IDSymbol name="ToggleStickyHeaderCommand" value="0x0106" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>
